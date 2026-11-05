@@ -19,17 +19,20 @@ Option 2, USB:
 | Input | Action |
 |---|---|
 | A / B | Walk forward / back |
-| D-pad left / right | Choose the swing side |
+| Crank | Drives the weapon. It follows the crank on a spring, so heavy weapons lag behind |
+| D-pad left / right | Slide the weapon's pivot left / right (and move the floor reach hint to that side) |
 | D-pad up / down | Aim up / down |
-| Crank | Swing. Cranking forward is a downward swing, backward is an upward swing. |
 | Offer screen: A | Take the new weapon |
 | Offer screen: B | Keep your current weapon |
 
-A swing starts when the crank turns far enough in one frame. Faster cranking hits harder, within limits.
+The weapon points where the crank points (straight up when the crank is at 0). Docking the crank stands the weapon upright. A swing hits whatever the weapon passes through, and faster cranking hits harder. There are no separate overhead or uppercut swings any more: the direction you crank is the direction of the hit.
+
+A hit with enough momentum goes through the dummy and carries on, a little slower. A hit without enough momentum bounces: the weapon flies back loose and stops following the crank. Bring the crank back to the weapon's angle to pick it up again.
 
 ## What to try
 
-- Swing in every direction: left, right, up and down, forward and backward on the crank.
+- Swing both ways on the crank, with the pivot left, centred and right.
+- Make a weapon bounce (the chicken bounces off almost everything), then reconnect with it.
 - Use every weapon: Rubber Chicken, Bat, Frying Pan, Sledgehammer. Weapons are offered as pickups as you pass doors.
 - Wall bursts: hit a dummy hard so the ragdoll slams a wall and bursts.
 - Bowling: knock a ragdoll into other dummies.
@@ -38,11 +41,15 @@ A swing starts when the crank turns far enough in one frame. Faster cranking hit
 
 ## Feel questions
 
-1. Is the crank threshold too twitchy or too stiff?
-2. Is the swing delay right for each weapon?
-3. Are the dummy reactions readable?
-4. Is the ragdoll too bouncy?
-5. Is the difficulty curve right: too fast, too slow, too crowded?
+1. Does the sledgehammer's lag feel like weight, or like delay?
+2. Is the bounce readable: can you tell the weapon came loose, and why?
+3. Is reconnecting obvious: do you find the weapon again without thinking about it?
+4. Is the weight bar on the offer screen useful?
+5. Does the floor reach patch still help, now that hits come from where the weapon actually is?
+6. Are the dummy reactions readable?
+7. Is the ragdoll too bouncy?
+8. Is the difficulty curve right: too fast, too slow, too crowded?
+9. The heavy hit sound is now sledgehammer-only: it plays when the weapon's mass is at least HIT_HEAVY_MASS (only the sledge) and the hit's momentum is at least HIT_HEAVY_MOMENTUM. This is a deliberate change: before the crank weapon, the frying pan and a fast bat hit also played the heavy sound. Every pan and bat hit now sounds light. Do you miss the heavy sound on the pan or a fast bat?
 
 Also tell me about anything that stutters, anything that looks wrong, and any crash.
 
@@ -52,9 +59,18 @@ All gameplay numbers are in `src/core/tuning.h`, except the weapon table in `src
 
 | Value | Current | Meaning |
 |---|---|---|
-| SWING_TRIGGER_DEG | 12 | Crank degrees in one frame to start a swing (lower is twitchier) |
-| SWING_SPEED_REF | 30 | Crank deg/frame that gives power factor 1.0 |
-| SWING_FACTOR_MIN / MAX | 0.5 / 1.5 | Clamp on the swing power factor |
+| WEAPON_MAX_VEL | 40 deg/frame | Top weapon speed |
+| SPEED_LINE_MIN_VEL | 6 deg/frame | Faster than this draws speed lines and plays the swing sound |
+| DUMMY_RESIST_SMALL / MEDIUM / LARGE | 45 / 70 / 130 | Momentum a hit needs to go through; less bounces |
+| MOMENTUM_REF | 80 | Momentum for a full-size hit reaction (a bat at 20 deg/frame hitting near its tip is about 80) |
+| DAMAGE_PER_MOMENTUM | 1/80 | Damage = momentum × power × this (× HEAD_MULT on the head) |
+| HEAD_MULT | 1.5 | Head hit damage multiplier |
+| HIT_HEAVY_MASS / HIT_HEAVY_MOMENTUM | 2.0 / 40 | A hit plays the heavy sound when the weapon is at least this heavy (only the sledge) and the contact momentum is at least this. The pan and a fast bat used to sound heavy and no longer do (feel question 9) |
+| WEAPON_BOUNCE_RESTITUTION | 0.4 | Share of the speed a bounced weapon flies back with |
+| WEAPON_BOUNCE_DAMP | 0.85 | Loose weapon speed kept per frame |
+| WEAPON_RECONNECT_DEG | 3 | How close the crank must come to a loose weapon to pick it up (crossing it also counts) |
+| WEAPON_SWEEP_STEP_DEG | 4 | Spacing of the contact samples along a frame's sweep |
+| WEAPON_SHIFT_PX | 100 px | How far left / right slides the pivot |
 | REACTION_FRAMES | 12 | How long a dummy's hit reaction lasts |
 | RAGDOLL_RESTITUTION | 0.45 | Bounciness (higher is bouncier) |
 | RAGDOLL_IMPACT_MIN | 3.0 m/s | Below this speed a ragdoll takes no impact damage |
@@ -68,22 +84,32 @@ All gameplay numbers are in `src/core/tuning.h`, except the weapon table in `src
 | PLAYER_RADIUS | 0.35 m | Blocking distance is PLAYER_RADIUS + dummy radius |
 | DUMMY_RADIUS_SMALL / MEDIUM / LARGE | 0.30 / 0.38 / 0.50 m | So you stop 0.65 / 0.73 / 0.85 m from a dummy |
 | HORIZON_Y | 72 px | Screen row of the horizon at middle aim (was 108). Lower values tilt the view down: more floor (and the weapon range patch) and more of close dummies' bodies show |
-| WEAPON_PIVOT_X / Y | 200 / 400 px | Where the swing pivots (below the screen). Raise Y to move the whole sweep lower |
-| WEAPON_SWEEP_RADIUS | 60 px | Grip distance from the pivot. Mid-sweep the grip is at PIVOT_Y minus this, so a smaller value lifts the weapon |
-| WEAPON_REST_X / Y / ANGLE | 352 / 300 px / -53 deg | Where the weapon rests (grip position and tilt). Raise Y to hide more handle |
+| WEAPON_PIVOT_X / Y | 200 / 376 px | Where the weapon pivots (below the screen). Raise Y to move the whole weapon lower. Upright, the bat's head is at about y 147 |
+| WEAPON_SWEEP_RADIUS | 60 px | Grip distance from the pivot. Upright, the grip is at PIVOT_Y minus this, so a smaller value lifts the weapon |
 
 The blocking distance matters because near dummies only show their head on screen. Raise or lower the radii to change how much of them you see.
 
-The floor shows a light dotted patch where your weapon can hit (reach and arc of the current weapon, shifted toward the side you hold on the D-pad). The patch starts about y 200 at the default aim (it is partly under the bottom HUD panel on the left).
+The floor shows a light dotted patch as a reach hint (the current weapon's reach, 2.4 m wide, shifted toward the side you hold on the D-pad). It is only a hint: hits come from the weapon touching a dummy on screen. The patch starts about y 200 at the default aim (it is partly under the bottom HUD panel on the left).
 
-Weapon table (`src/core/weapons.c`): fields are name, folder, delay (frames), power, reach, arc, launch, speed bars, power bars.
+Weapon table (`src/core/weapons.c`): fields are name, folder, power, reach, launch, mass, spring, damp, weight bars, power bars. Mass is how much the weapon lags the crank and how hard it hits; spring and damp set how it catches up.
 
-| Weapon | Delay (frames) | Power | Reach | Arc | Launch |
-|---|---|---|---|---|---|
-| Rubber Chicken | 2 | 0.6 | 1.3 | 1.0 | 3.0 |
-| Bat | 5 | 1.0 | 1.6 | 1.2 | 5.0 |
-| Frying Pan | 7 | 1.4 | 1.4 | 1.0 | 6.0 |
-| Sledgehammer | 12 | 2.4 | 1.8 | 1.4 | 9.0 |
+| Weapon | Power | Reach | Launch | Mass | Spring | Damp |
+|---|---|---|---|---|---|---|
+| Rubber Chicken | 1.5 | 1.3 | 3.0 | 0.4 | 0.4 | 1.0 |
+| Bat | 1.0 | 1.6 | 5.0 | 1.0 | 0.5 | 0.77 |
+| Frying Pan | 1.01 | 1.4 | 6.0 | 1.4 | 0.5 | 0.67 |
+| Sledgehammer | 0.92 | 1.8 | 9.0 | 2.6 | 0.5 | 0.49 |
+
+**Balance note.** Damage = momentum × power × DAMAGE_PER_MOMENTUM, and momentum already includes the weapon's mass, so `power` is per unit of momentum. It is set so a body hit at the tip at 20 deg/frame does what the old canned swing did at power factor 1.0, and hits-to-kill match the old game (small / medium / large: 2 / 3 / 5 HP):
+
+| Weapon | Damage per tip hit at 20 deg/frame | Hits to kill |
+|---|---|---|
+| Rubber Chicken | 0.60 | 4 / 5 / 9 |
+| Bat | 1.00 | 2 / 3 / 5 |
+| Frying Pan | 1.40 | 2 / 3 / 4 |
+| Sledgehammer | 2.39 | 1 / 2 / 3 |
+
+Hits nearer the grip, or slower ones (the sledge lags the crank), do less. Faster ones do more. Note how many hits each weapon takes in practice.
 
 ## Known rough edges
 

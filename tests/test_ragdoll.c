@@ -448,7 +448,7 @@ static void test_worst_case_frame_budget(void) {
         g.impacts[i].x = 40.0f + 40.0f * (float)i; g.impacts[i].y = 100.0f;
         g.impacts[i].r = IMPACT_MAX_R; g.impacts[i].t = IMPACT_FRAMES;
     }
-    g.swing.phase = SWS_SWEEP; g.swing.sweep01 = 0.5f; g.swing.side = SIDE_LEFT;
+    g.wp.live = g.wp.attached = true; g.wp.angle = -30; g.wp.vel = 20;
     game_render(&g);
     CHECK_EQ_INT(g.rl.dropped, 0);
     CHECK(g.rl.n <= 1024 - 128);

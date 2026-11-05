@@ -2,7 +2,7 @@
 """Generates perf/scenarios/fight/input.json deterministically.
 
 Hold A to walk; every 25 frames alternate left and right holds, each with a 3-frame crank burst
-of 25 degrees per frame (above SWING_TRIGGER_DEG) so a swing starts on that side.
+of 25 degrees per frame, so the crank-driven weapon swings while that side is held.
 Usage: tools/gen_fight_input.py [output]   (default perf/scenarios/fight/input.json)
 """
 import json

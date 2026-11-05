@@ -8,4 +8,5 @@ void pd_input_read(PlaydateAPI* pd, GameInput* in) {
     in->released = (uint8_t)released;
     in->crank_docked = pd->system->isCrankDocked() != 0;
     in->crank_delta = in->crank_docked ? 0.0f : pd->system->getCrankChange();
+    in->crank_angle = pd->system->getCrankAngle();
 }

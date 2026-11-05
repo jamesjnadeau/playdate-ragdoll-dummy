@@ -51,13 +51,6 @@
 #define DUMMY_HIT_PUSHBACK 0.35f
 #define DUMMY_EMERGE_FRAMES 15
 #define REACTION_FRAMES 12
-#define SWING_TRIGGER_DEG 12.0f      /* crank degrees in one frame to start */
-#define SWING_WINDOW 4               /* frames to measure peak speed */
-#define SWING_SPEED_REF 30.0f        /* deg/frame that gives factor 1.0 */
-#define SWING_FACTOR_MIN 0.5f
-#define SWING_FACTOR_MAX 1.5f
-#define SWING_SWEEP_FRAMES 6
-#define SWING_RECOVER_FRAMES 8
 #define HEAD_MULT 1.5f
 #define GRAVITY 9.8f
 #define RAGDOLL_ITER 4
@@ -136,20 +129,19 @@
 #define PICKUP_BOB_PX 3.0f           /* bob amplitude on screen */
 #define PICKUP_BOB_RAD_PER_FRAME 0.25f
 /* Weapon drawing (screen px, degrees; 0 deg points the weapon straight up). */
-/* Owner-tuned (playtest 1): the sweep crosses the lower-middle of the screen (head about y 170 at mid-sweep)
-   and the grip stays below the bottom edge, so only a little of the handle shows. */
-#define WEAPON_REST_X 352.0f         /* resting grip position; the grip is off the bottom edge */
-#define WEAPON_REST_Y 300.0f
-#define WEAPON_REST_DEG -53.0f
+/* The weapon turns about a pivot below the screen; held upright, the bat's head is about y 147. */
 #define WEAPON_PIVOT_X 200.0f        /* sweep pivot, below the screen */
-#define WEAPON_PIVOT_Y 400.0f
+#define WEAPON_PIVOT_Y 376.0f
 #define WEAPON_SWEEP_RADIUS 60.0f    /* grip distance from the pivot */
-#define WEAPON_SIDE_DEG 70.0f
-#define WEAPON_VERT_NEAR_DEG 20.0f
-#define WEAPON_VERT_FAR_DEG 160.0f
 #define SPEED_LINES 3
 #define SPEED_LINE_GAP_DEG 6.0f
 #define SPEED_LINE_LEN_DEG 22.0f
+#define SPEED_LINE_MIN_VEL 6.0f      /* deg/frame: faster draws speed lines and starts the swing sound */
+#define REACH_PATCH_HALF_W 1.2f      /* half width of the floor reach hint, m */
+/* Dummy hit boxes, as fractions of the rig height. */
+#define HIT_HEAD_HALF_W_FRAC 0.17f
+#define HIT_HEAD_H_FRAC 0.34f
+#define HIT_ARM_PAD_FRAC 0.12f
 /* Impact stars and hurt feedback. */
 #define IMPACT_FRAMES 4
 #define MAX_IMPACTS 8
@@ -165,8 +157,30 @@
 /* Title, game over and sound. */
 #define TITLE_DUMMY_Z 4.0f           /* the idle dummy on the title screen */
 #define GAME_OVER_LOCK_FRAMES 15     /* A is ignored this long after death, so a walking player does not skip the screen */
-#define HIT_HEAVY_DAMAGE 1.4f        /* hits of at least this damage play the heavy sound */
+#define HIT_HEAVY_MASS 2.0f          /* heavy hit sound: weapons at least this heavy (the sledge, not the pan at 1.4) */
+#define HIT_HEAVY_MOMENTUM 40.0f     /* ... with at least this contact momentum */
 #define STEP_SOUND_FRAMES 12         /* walking frames per footstep sound */
 #define SOUND_QUEUE_MAX 16
+
+/* Weapon motion (crank-driven, spring-coupled). */
+#define CRANK_ZERO_DEG 0.0f          /* crank angle that points the weapon straight up */
+#define WEAPON_MAX_VEL 40.0f         /* degrees per frame */
+#define WEAPON_BOUNCE_DAMP 0.85f     /* loose weapon velocity multiplier per frame */
+#define WEAPON_STOP_VEL 0.5f
+#define WEAPON_RECONNECT_DEG 3.0f
+#define WEAPON_SHIFT_PX 100.0f
+#define WEAPON_SHIFT_PX_PER_FRAME 10.0f
+#define WEAPON_REBASE_DEG 3600.0f
+
+/* Weapon contact (swept weapon vs dummy hit boxes). */
+#define WEAPON_SWEEP_STEP_DEG 4.0f   /* sample spacing along a frame's sweep */
+#define WEAPON_BOUNCE_RESTITUTION 0.4f
+#define DUMMY_RESIST_SMALL 45.0f     /* momentum a hit needs to carry through */
+#define DUMMY_RESIST_MEDIUM 70.0f
+#define DUMMY_RESIST_LARGE 130.0f
+#define MOMENTUM_REF 80.0f           /* a bat at 20 deg/frame at the tip is about 79.6 */
+#define DAMAGE_PER_MOMENTUM (1.0f / MOMENTUM_REF)
+#define HIT_SCALE_MIN 0.5f
+#define HIT_SCALE_MAX 1.5f
 
 #endif

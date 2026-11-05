@@ -21,6 +21,11 @@ void pose_for_state(const Dummy* d, int frame, DummyPose* out);
 /* Reaction pose (ReactionType in combat.h). t01 = 1 at the hit, easing to 0; blends toward the neutral walk pose of the same global frame. */
 void pose_for_reaction(ReactionType rx, float t01, const Dummy* d, int frame, DummyPose* out);
 void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRig* rig, const DummyPose* pose);
+typedef struct { float x0, y0, x1, y1; } ScreenBox;   /* x0 <= x1, y0 <= y1 */
+/* Screen boxes a weapon can strike for a dummy drawn with this pose. False when draw_dummy would draw nothing
+   (behind the near plane, past FAR_Z, or off the sides). */
+bool dummy_hit_boxes(const Camera* cam, const Dummy* d, const DummyRig* rig, const DummyPose* pose,
+                     ScreenBox* head, ScreenBox* body);
 /* World position of the open leaf's free edge (x, z). */
 void door_leaf_free_edge(const Door* door, float* x, float* z);
 void draw_door(RenderList* rl, const Camera* cam, const Door* door);

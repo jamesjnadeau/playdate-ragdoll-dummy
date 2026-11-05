@@ -145,7 +145,7 @@ static void test_draw_particles_budget(void) {
         g.impacts[i].x = 40.0f + 40.0f * (float)i; g.impacts[i].y = 100.0f;
         g.impacts[i].r = IMPACT_MAX_R; g.impacts[i].t = IMPACT_FRAMES;
     }
-    g.swing.phase = SWS_SWEEP; g.swing.sweep01 = 0.5f; g.swing.side = SIDE_LEFT;
+    g.wp.live = g.wp.attached = true; g.wp.angle = -30; g.wp.vel = 20;
     for (i = 0; i < PARTICLE_MAX; i++) {   /* a full pool, all on screen and near */
         Particle* p = &g.particles.p[i];
         p->active = true; p->kind = (i % 3 == 0) ? PK_SCRAP : (i % 17 == 0) ? PK_TOOTH : PK_PUFF;

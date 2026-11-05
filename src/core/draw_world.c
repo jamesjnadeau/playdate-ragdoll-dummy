@@ -1,10 +1,11 @@
 #include "draw_world.h"
+#include <math.h>
 #include "pose.h"
 #include "tuning.h"
 #include "rmath.h"
 #include "combat.h"
 
-/* The floor patch the weapon can hit: the same box as combat_resolve, from the near plane out to the reach and
+/* A reach hint on the floor (combat_reach_area), from the near plane out to the reach and
    clamped to the walls. A light 25% dither over the floor, so what stands on it shows through. */
 static void draw_reach_patch(RenderList* rl, const Camera* cam, const WeaponDef* w, int side) {
     float x0, x1, z0, z1, xy[8], ppm;
@@ -71,42 +72,28 @@ void draw_world(RenderList* rl, const Camera* cam, const Hallway* hall,
     }
 }
 
-/* Start and end angle of the sweep for a swing. */
-static void sweep_angles(const Swing* s, float* a0, float* a1) {
-    if (s->side == SIDE_LEFT) { *a0 = -WEAPON_SIDE_DEG; *a1 = WEAPON_SIDE_DEG; }
-    else if (s->side == SIDE_RIGHT) { *a0 = WEAPON_SIDE_DEG; *a1 = -WEAPON_SIDE_DEG; }
-    else if (s->vert == VERT_UP) { *a0 = WEAPON_VERT_FAR_DEG; *a1 = WEAPON_VERT_NEAR_DEG; }
-    else { *a0 = WEAPON_VERT_NEAR_DEG; *a1 = WEAPON_VERT_FAR_DEG; }
-}
-
-/* Point at distance r from the sweep pivot, at weapon angle deg (0 = straight up). */
-static void polar(float deg, float r, float* x, float* y) {
-    *x = WEAPON_PIVOT_X + r * rsin_deg(deg);
+/* Point at distance r from the sweep pivot (px, WEAPON_PIVOT_Y), at weapon angle deg (0 = straight up). */
+static void polar(float px, float deg, float r, float* x, float* y) {
+    *x = px + r * rsin_deg(deg);
     *y = WEAPON_PIVOT_Y - r * rcos_deg(deg);
 }
 
-void draw_weapon(RenderList* rl, const Swing* s, const WeaponRig* wr, int image) {
+void draw_weapon(RenderList* rl, const Weapon* wp, const WeaponRig* wr, int image) {
     float cx = wr->w > 0 ? wr->grip.x / (float)wr->w : 0.5f;
     float cy = wr->h > 0 ? wr->grip.y / (float)wr->h : 0.9f;
-    float a0, a1, a, gx, gy;
+    float px = weapon_pivot_x(wp), a = weapon_wrap_deg(wp->angle), gx, gy;
     int i;
 
-    if (s->phase != SWS_SWEEP) {
-        rl_bitmap(rl, image, WEAPON_REST_X, WEAPON_REST_Y, WEAPON_REST_DEG, cx, cy, 1.0f, 1.0f, false);
-        return;
-    }
-    sweep_angles(s, &a0, &a1);
-    a = lerpf(a0, a1, clampf(s->sweep01, 0.0f, 1.0f));
-    polar(a, WEAPON_SWEEP_RADIUS, &gx, &gy);
-    /* Speed lines trail behind the leading edge, along arcs at three distances up the weapon. */
-    {
-        float dir = a1 > a0 ? 1.0f : -1.0f;
+    polar(px, a, WEAPON_SWEEP_RADIUS, &gx, &gy);
+    /* A fast weapon, held or loose, trails speed lines along arcs at three distances up it. */
+    if (fabsf(wp->vel) >= SPEED_LINE_MIN_VEL) {
+        float dir = wp->vel > 0.0f ? 1.0f : -1.0f;
         float len = wr->h > 0 ? (float)wr->h : 170.0f;
         for (i = 0; i < SPEED_LINES; i++) {
             float r = WEAPON_SWEEP_RADIUS + len * (0.45f + 0.25f * (float)i);
             float x0, y0, x1, y1;
-            polar(a - dir * SPEED_LINE_GAP_DEG, r, &x0, &y0);
-            polar(a - dir * (SPEED_LINE_GAP_DEG + SPEED_LINE_LEN_DEG), r, &x1, &y1);
+            polar(px, a - dir * SPEED_LINE_GAP_DEG, r, &x0, &y0);
+            polar(px, a - dir * (SPEED_LINE_GAP_DEG + SPEED_LINE_LEN_DEG), r, &x1, &y1);
             rl_line(rl, x0, y0, x1, y1, 2, PAT_BLACK);
         }
     }
