@@ -76,6 +76,7 @@ int ragdoll_spawn(RagdollPool* p, DummyPool* dummies, int dummy, const DummyRig*
 
 typedef struct {
     float max_impact;          /* biggest normal impact speed this step (m/s) */
+    Vec3 normal;               /* surface normal of that impact */
     int nslam;                 /* wall hits above RAGDOLL_IMPACT_MIN, one per point */
     int slam_side[RP_COUNT];
     float slam_z[RP_COUNT];
@@ -101,7 +102,7 @@ static void collide(Ragdoll* r, int i, Contacts* c) {
             pr->z = p->z - (p->z - pr->z) * RAGDOLL_FRICTION;
             pr->x = p->x + s * out * DT;
             if (c) {
-                if (v > c->max_impact) c->max_impact = v;
+                if (v > c->max_impact) { c->max_impact = v; c->normal = (Vec3){ -s, 0.0f, 0.0f }; }
                 if (v > RAGDOLL_IMPACT_MIN) { c->slam_side[c->nslam] = (int)s; c->slam_z[c->nslam] = p->z; c->nslam++; }
             }
         }
@@ -114,7 +115,7 @@ static void collide(Ragdoll* r, int i, Contacts* c) {
             pr->x = p->x - (p->x - pr->x) * RAGDOLL_FRICTION;
             pr->z = p->z - (p->z - pr->z) * RAGDOLL_FRICTION;
             pr->y = -out * DT;
-            if (c && v > c->max_impact) c->max_impact = v;
+            if (c && v > c->max_impact) { c->max_impact = v; c->normal = (Vec3){ 0.0f, 1.0f, 0.0f }; }
         }
     } else if (p->y > HALL_H) {
         v = (p->y - pr->y) / DT;
@@ -124,7 +125,7 @@ static void collide(Ragdoll* r, int i, Contacts* c) {
             pr->x = p->x - (p->x - pr->x) * RAGDOLL_FRICTION;
             pr->z = p->z - (p->z - pr->z) * RAGDOLL_FRICTION;
             pr->y = HALL_H + out * DT;
-            if (c && v > c->max_impact) c->max_impact = v;
+            if (c && v > c->max_impact) { c->max_impact = v; c->normal = (Vec3){ 0.0f, -1.0f, 0.0f }; }
         }
     }
 }
@@ -255,6 +256,7 @@ void ragdoll_step(RagdollPool* p, DummyPool* dummies, Hallway* hall, const Dummy
             if (out->burst_count < 6) {
                 out->burst_idx[out->burst_count] = ri;
                 out->burst_at[out->burst_count] = r->p[RP_BODY_LO];
+                out->burst_n[out->burst_count] = c.normal;
                 out->burst_count++;
             }
             r->active = false;

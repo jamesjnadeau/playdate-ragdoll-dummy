@@ -23,6 +23,8 @@ void suite_bench(void) {
 
     CHECK(parse("{\"scene\":\"burst_storm\"}", &c));
     CHECK_EQ_INT(c.scene, BENCH_BURST_STORM);
+    CHECK(parse("{\"scene\":\"burst-storm\"}", &c));
+    CHECK_EQ_INT(c.scene, BENCH_BURST_STORM);
     CHECK(parse("{\"scene\":\"skins\"}", &c));
     CHECK_EQ_INT(c.scene, BENCH_SKINS);
     CHECK(parse("{\"scene\":\"ragdoll\"}", &c));

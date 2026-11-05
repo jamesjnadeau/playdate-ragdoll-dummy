@@ -22,7 +22,7 @@ bool bench_parse(const char* json, int len, BenchConfig* out) {
         if (!json_str(json, t, i, name, (int)sizeof(name))) return false;
         if (strcmp(name, "walk") == 0) out->scene = BENCH_WALK;
         else if (strcmp(name, "wave") == 0) out->scene = BENCH_WAVE;
-        else if (strcmp(name, "burst_storm") == 0) out->scene = BENCH_BURST_STORM;
+        else if (strcmp(name, "burst_storm") == 0 || strcmp(name, "burst-storm") == 0) out->scene = BENCH_BURST_STORM;
         else if (strcmp(name, "skins") == 0) out->scene = BENCH_SKINS;
         else if (strcmp(name, "ragdoll") == 0) out->scene = BENCH_RAGDOLL;
         else return false;

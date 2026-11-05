@@ -24,11 +24,50 @@ void game_set_rigs(Game* g, const DummyRig rigs[DS_COUNT]) {
     memcpy(g->rigs, rigs, sizeof(g->rigs));
 }
 
+/* Wave: the 4 nearest doors ahead are open with their full quota, and the dummy pool is pre-filled. */
+static void bench_wave(Game* g, float distance) {
+    int i, opened = 0, k = 0, guard = 0;
+    int door_of[4];
+    hallway_update(&g->hall, &g->rng, distance);
+    for (i = 0; i < g->hall.ndoors && opened < 4; i++) {
+        Door* d = &g->hall.doors[i];
+        if (d->z < distance) continue;
+        d->state = DOOR_OPEN; d->leaf_angle = 1.0f; d->spawn_timer = DOOR_SPAWN_INTERVAL;
+        d->remaining = hallway_dummies_for_door(distance);
+        door_of[opened++] = i;
+    }
+    while (opened > 0 && guard++ < MAX_DUMMIES) {
+        const Door* d = &g->hall.doors[door_of[k % opened]];
+        int s = dummy_spawn(&g->dummies, hallway_pick_size(&g->rng, d->z),
+                            (float)d->side * (HALL_HALF_W - DOOR_SPAWN_INSET - 0.15f * (float)(k / opened)),
+                            d->z + DOOR_LEN * 0.5f + 0.3f * (float)(k / opened), door_of[k % opened]);
+        if (s < 0) break;
+        g->dummies.d[s].state = DST_WALK;
+        k++;
+    }
+}
+
+/* Burst storm: every BENCH_STORM_PERIOD frames, small dummies are knocked out toward the walls. */
+static void bench_storm_tick(Game* g) {
+    int i;
+    for (i = 0; i < g->hall.ndoors; i++) g->hall.doors[i].remaining = 0;   /* only the storm's dummies */
+    if (g->frame % BENCH_STORM_PERIOD != 0) return;
+    for (i = 0; i < BENCH_STORM_COUNT; i++) {
+        float side = (i & 1) ? -1.0f : 1.0f;
+        int d = dummy_spawn(&g->dummies, DS_SMALL, side * 0.3f, g->player.z + 1.6f + 0.35f * (float)i, -1);
+        if (d < 0) continue;
+        g->dummies.d[d].state = DST_RAGDOLL;
+        g->dummies.d[d].launch = (Vec3){ side * 12.0f, 3.0f, 4.0f };
+    }
+}
+
 void game_start_bench(Game* g, const BenchConfig* cfg) {
     game_init(g, cfg->seed);
     g->player.z = cfg->distance;
     g->cam.player_z = cfg->distance;
     camera_update(&g->cam);
+    g->bench = cfg->scene;
+    if (cfg->scene == BENCH_WAVE) bench_wave(g, cfg->distance);
     if (cfg->scene == BENCH_RAGDOLL) {   /* one dummy flung at the right wall, for screenshots */
         int d = dummy_spawn(&g->dummies, DS_MEDIUM, -0.5f, cfg->distance + 1.8f, -1);
         g->dummies.d[d].state = DST_RAGDOLL;
@@ -81,6 +120,22 @@ static void spawn_impacts(Game* g) {
     }
 }
 
+/* Teeth fly on the frame an upward reaction begins, from the head. */
+static void spawn_teeth(Game* g) {
+    int i;
+    for (i = 0; i < MAX_DUMMIES; i++) {
+        const Dummy* d = &g->dummies.d[i];
+        const DummyRig* rig = &g->rigs[d->size];
+        Vec3 at;
+        if (!d->alive || d->state == DST_RAGDOLL || d->state == DST_DEAD) continue;
+        if (d->reaction_t != REACTION_FRAMES) continue;
+        if (d->reaction != RX_UPWARD && d->reaction != RX_LEFT_UP && d->reaction != RX_RIGHT_UP) continue;
+        at.x = d->x; at.z = d->z;
+        at.y = -rig->face_center.y / rig->height_px * dummy_height(d->size);
+        particles_teeth(&g->particles, &g->rng, at);
+    }
+}
+
 void game_update(Game* g, const GameInput* in) {
     int i, pev;
     for (i = 0; i < MAX_IMPACTS; i++) if (g->impacts[i].t > 0) g->impacts[i].t--;
@@ -95,6 +150,7 @@ void game_update(Game* g, const GameInput* in) {
     g->frame++;
 
     hallway_update(&g->hall, &g->rng, g->cam.player_z);
+    if (g->bench == BENCH_BURST_STORM) bench_storm_tick(g);
     if (g->hall.recycled > 0) {
         int i;
         for (i = 0; i < MAX_DUMMIES; i++) {
@@ -123,6 +179,7 @@ void game_update(Game* g, const GameInput* in) {
                                       g->hits, (int)(sizeof(g->hits) / sizeof(g->hits[0])));
     }
     spawn_impacts(g);
+    spawn_teeth(g);
 
     /* Knocked-out dummies become ragdolls, then every ragdoll steps once. */
     for (i = 0; i < MAX_DUMMIES; i++) {
@@ -134,8 +191,13 @@ void game_update(Game* g, const GameInput* in) {
         RagdollStepOut ro;
         ragdoll_step(&g->ragdolls, &g->dummies, &g->hall, g->rigs, &ro);
         g->nbursts = ro.burst_count;
-        for (i = 0; i < ro.burst_count; i++) g->bursts[i] = ro.burst_at[i];
+        for (i = 0; i < ro.burst_count; i++) {
+            g->bursts[i] = ro.burst_at[i];
+            g->burst_n[i] = ro.burst_n[i];
+            particles_burst(&g->particles, &g->rng, ro.burst_at[i], ro.burst_n[i]);
+        }
     }
+    particles_step(&g->particles);
 }
 
 void game_render(Game* g) {
@@ -149,6 +211,7 @@ void game_render(Game* g) {
         rl_offset(&g->rl, 0, o[0] * HURT_SHAKE_PX, o[1] * HURT_SHAKE_PX);
         g->rl.invert = g->hurt_t == HURT_SHAKE_FRAMES;
     }
+    draw_particles(&g->rl, &g->cam, &g->particles);
     for (i = 0; i < MAX_IMPACTS; i++)
         if (g->impacts[i].t > 0) draw_impact(&g->rl, g->impacts[i].x, g->impacts[i].y, g->impacts[i].r);
     draw_weapon(&g->rl, &g->swing, &g->wrigs[g->weapon], IMG_WEAPON_HELD0 + (int)g->weapon);

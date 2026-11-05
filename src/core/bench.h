@@ -12,7 +12,7 @@ typedef struct {
     uint32_t seed;
 } BenchConfig;
 
-/* Parses bench.json: {"scene":"walk|wave|burst_storm|skins|ragdoll","distance":N,"seed":N}.
+/* Parses bench.json: {"scene":"walk|wave|burst_storm (or burst-storm)|skins|ragdoll","distance":N,"seed":N}.
  * Missing keys default to walk, 0, 1. Unknown scene or invalid JSON: false. */
 bool bench_parse(const char* json, int len, BenchConfig* out);
 

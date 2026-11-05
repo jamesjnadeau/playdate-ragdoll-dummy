@@ -80,6 +80,30 @@
 #define PARTICLE_LIFE_FRAMES 150
 #define BURST_PUFFS 26
 #define BURST_SCRAPS 9
+#define BURST_FLOOR_PUFFS 12         /* extra puffs thrown at the floor below a burst, to form the pile */
+#define PARTICLE_MAX 256
+#define PARTICLE_PUFF_SPEED_MIN 1.0f /* burst spray speeds (m/s) */
+#define PARTICLE_PUFF_SPEED_MAX 4.0f
+#define PARTICLE_SCRAP_SPEED_MIN 3.0f
+#define PARTICLE_SCRAP_SPEED_MAX 7.0f
+#define PARTICLE_FLOOR_SPREAD 1.2f   /* sideways speed of the floor-aimed puffs */
+#define PARTICLE_FLOOR_DOWN 2.0f
+#define PARTICLE_BOUNCE 0.3f         /* scrap restitution, one bounce */
+#define PARTICLE_SPIN_MAX 25.0f      /* deg/frame */
+#define PARTICLE_WALL_INSET 0.05f
+#define TOOTH_COUNT 2
+#define TOOTH_LIFE_FRAMES 45
+#define TOOTH_UP_SPEED 3.0f
+#define TOOTH_OUT_SPEED 1.5f
+#define PUFF_SIZE_M 0.12f
+#define SCRAP_SIZE_M 0.15f
+#define TOOTH_SIZE_M 0.05f
+#define PARTICLE_IMG_PX 12.0f        /* nominal source image size the world sizes are scaled from */
+#define PARTICLE_MIN_PX 1.0f         /* smaller particles are not drawn */
+#define PARTICLE_DRAW_MAX 256        /* farthest particles are dropped above this many */
+#define PARTICLE_CMD_RESERVE 240     /* render commands kept free for the impact stars and weapon drawn after particles */
+#define BENCH_STORM_PERIOD 60
+#define BENCH_STORM_COUNT 6
 #define DOOR_LEN 1.1f
 #define DOOR_FIRST_Z 6.0f
 #define DOOR_GAP_MIN 3.0f
