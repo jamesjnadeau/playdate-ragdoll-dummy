@@ -42,6 +42,13 @@ jobs:
           export PLAYDATE_SDK_PATH="$HOME/PlaydateSDK/PlaydateSDK-3.1.2"
           make -j$(nproc) device_bin
           make check-doubles
+          make
+          zip -r RagdollDummies.pdx.zip RagdollDummies.pdx
+      - name: Upload pdx
+        uses: actions/upload-artifact@v4
+        with:
+          name: RagdollDummies.pdx
+          path: RagdollDummies.pdx.zip
 
   perf:
     needs: device-build
