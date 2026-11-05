@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host unit tests
+        run: make -j$(nproc) test
+
+  device-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi
+      - name: Cache Playdate SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/PlaydateSDK
+          key: playdate-sdk-3.1.2-linux
+      # SDK tarball URL (pinned to 3.1.2). Verified reachable with curl -sSfI
+      # when this workflow was written. If Panic changes the pattern, check
+      # https://play.date/dev/ for the current Linux tarball and keep 3.1.2.
+      # The tarball extracts to PlaydateSDK-3.1.2/. We skip the SDK's
+      # setup.sh (needs sudo; not required for the compiler/build support).
+      - name: Download Playdate SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/PlaydateSDK"
+          curl -sSfL https://download.panic.com/playdate_sdk/Linux/PlaydateSDK-3.1.2.tar.gz \
+            | tar -xz -C "$HOME/PlaydateSDK"
+      - name: Device build
+        run: |
+          export PLAYDATE_SDK_PATH="$HOME/PlaydateSDK/PlaydateSDK-3.1.2"
+          make -j$(nproc) device_bin
+          make check-doubles
