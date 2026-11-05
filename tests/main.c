@@ -9,6 +9,7 @@ void suite_json(void);
 void suite_camera(void);
 void suite_render_list(void);
 void suite_draw_world(void);
+void suite_bench(void);
 
 int main(void) {
     RUN(smoke);
@@ -18,6 +19,7 @@ int main(void) {
     RUN(camera);
     RUN(render_list);
     RUN(draw_world);
+    RUN(bench);
     if (g_failures > 0) {
         printf("%d check(s) failed\n", g_failures);
         return 1;

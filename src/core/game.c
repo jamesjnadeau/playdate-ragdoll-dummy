@@ -10,6 +10,12 @@ void game_init(Game* g, uint32_t seed) {
     g->cam.pitch_px = 0.0f;
 }
 
+void game_start_bench(Game* g, const BenchConfig* cfg) {
+    game_init(g, cfg->seed);
+    g->cam.player_z = cfg->distance;
+    camera_update(&g->cam);
+}
+
 void game_update(Game* g, const GameInput* in) {
     if (in->held & BTN_A) g->cam.player_z += PLAYER_SPEED * DT;
     if (in->held & BTN_B) g->cam.player_z -= PLAYER_SPEED * DT;

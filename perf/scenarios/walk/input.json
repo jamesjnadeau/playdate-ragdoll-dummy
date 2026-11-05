@@ -1,0 +1,92 @@
+{
+ "events": [
+  {
+   "frame": 5,
+   "press": [
+    "a"
+   ]
+  },
+  {
+   "frame": 30,
+   "crank": 25.0
+  },
+  {
+   "frame": 60,
+   "crank": 25.0
+  },
+  {
+   "frame": 90,
+   "crank": 25.0
+  },
+  {
+   "frame": 120,
+   "crank": 25.0
+  },
+  {
+   "frame": 150,
+   "crank": 25.0
+  },
+  {
+   "frame": 180,
+   "crank": 25.0
+  },
+  {
+   "frame": 210,
+   "crank": 25.0
+  },
+  {
+   "frame": 240,
+   "crank": 25.0
+  },
+  {
+   "frame": 270,
+   "crank": 25.0
+  },
+  {
+   "frame": 300,
+   "crank": 25.0
+  },
+  {
+   "frame": 330,
+   "crank": 25.0
+  },
+  {
+   "frame": 360,
+   "crank": 25.0
+  },
+  {
+   "frame": 390,
+   "crank": 25.0
+  },
+  {
+   "frame": 420,
+   "crank": 25.0
+  },
+  {
+   "frame": 450,
+   "crank": 25.0
+  },
+  {
+   "frame": 480,
+   "crank": 25.0
+  },
+  {
+   "frame": 510,
+   "crank": 25.0
+  },
+  {
+   "frame": 540,
+   "crank": 25.0
+  },
+  {
+   "frame": 570,
+   "crank": 25.0
+  },
+  {
+   "frame": 590,
+   "release": [
+    "a"
+   ]
+  }
+ ]
+}

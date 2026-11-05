@@ -42,3 +42,49 @@ jobs:
           export PLAYDATE_SDK_PATH="$HOME/PlaydateSDK/PlaydateSDK-3.1.2"
           make -j$(nproc) device_bin
           make check-doubles
+
+  perf:
+    needs: device-build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Playdate SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/PlaydateSDK
+          key: playdate-sdk-3.1.2-linux
+      - name: Download Playdate SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/PlaydateSDK"
+          curl -sSfL https://download.panic.com/playdate_sdk/Linux/PlaydateSDK-3.1.2.tar.gz \
+            | tar -xz -C "$HOME/PlaydateSDK"
+      - name: Cache pdsim
+        uses: actions/cache@v4
+        with:
+          path: .pdsim
+          key: pdsim-6af8292199ef02a42baf9901719dbb64395e38e8
+      - name: Build pdsim
+        run: tools/pdsim.sh
+      - name: Device build and stage
+        run: |
+          export PLAYDATE_SDK_PATH="$HOME/PlaydateSDK/PlaydateSDK-3.1.2"
+          make -j$(nproc) device_bin
+          tools/stage_pdsim.sh
+      - name: Perf scenarios
+        run: |
+          export PLAYDATE_SDK_PATH="$HOME/PlaydateSDK/PlaydateSDK-3.1.2"
+          perf/run.sh
+      - name: Upload perf results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf
+          path: build/perf/
