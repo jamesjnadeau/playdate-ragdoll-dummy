@@ -76,6 +76,7 @@
 #define RAGDOLL_BOWL_PUSH 0.3f       /* m a bowled dummy is shoved along the ragdoll's velocity */
 #define RAGDOLL_BOWL_COOLDOWN 10     /* frames before the same ragdoll-dummy pair can hit again */
 #define RAGDOLL_BOWL_LAUNCH 0.6f     /* a bowled-out dummy flies at this fraction of the hitting speed */
+#define RAGDOLL_BASE_HIDE_Y 0.05f    /* the black base ellipse is not drawn above this height (m) */
 #define PARTICLE_LIFE_FRAMES 150
 #define BURST_PUFFS 26
 #define BURST_SCRAPS 9

@@ -209,7 +209,7 @@ void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRi
     c.lean = pose->lean_deg; c.lsin = rsin_deg(c.lean); c.lcos = rcos_deg(c.lean); c.psx = pose->sx; c.psy = pose->sy;
     c.size = (int)d->size;
 
-    part(&c, PART_BASE, origin, 0.0f, 0.5f, 0.5f, 1.0f);
+    if (pose->lift_m <= RAGDOLL_BASE_HIDE_Y) part(&c, PART_BASE, origin, 0.0f, 0.5f, 0.5f, 1.0f);
     part(&c, PART_BODY, rig->body_center, 0.0f, 0.5f, 0.5f, 1.0f);
     draw_arm(&c, rig, rig->shoulder_l, -1.0f, pose->arm_l_deg, pose->elbow_l_deg);
     draw_arm(&c, rig, rig->shoulder_r, 1.0f, pose->arm_r_deg, pose->elbow_r_deg);

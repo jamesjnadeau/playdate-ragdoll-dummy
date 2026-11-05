@@ -3,6 +3,7 @@
 #include "ragdoll.h"
 #include "draw_world.h"
 #include "game.h"
+#include "pose.h"
 #include "tuning.h"
 
 static DummyRig g_rigs[DS_COUNT];
@@ -453,7 +454,52 @@ static void test_worst_case_frame_budget(void) {
     CHECK(g.rl.n <= 1024 - 128);
 }
 
+static int count_images(const RenderList* rl, int image) {
+    int n = 0;
+    for (int i = 0; i < rl->n; i++) if (rl->cmd[i].type == RC_BITMAP && rl->cmd[i].image == image) n++;
+    return n;
+}
+
+static void test_ragdoll_base_hidden_when_airborne(void) {
+    static RagdollPool rp; static DummyPool dp;
+    Camera cam = { 0 };
+    int r;
+    init_rigs();
+    memset(&rp, 0, sizeof rp); memset(&dp, 0, sizeof dp);
+    camera_set_aim(&cam, 1); camera_update(&cam);
+    r = mk_ragdoll(&rp, &dp, DS_MEDIUM, 0.0f, 3.0f, V(0, 0, 0));
+    rp.r[r].p[RP_BASE].y = 0.0f;
+    rl_clear(&g_rl);
+    draw_ragdoll(&g_rl, &cam, &rp.r[r], &g_rigs[DS_MEDIUM]);
+    CHECK_EQ_INT(count_images(&g_rl, img_dummy(DS_MEDIUM, PART_BASE)), 1);
+    rp.r[r].p[RP_BASE].y = RAGDOLL_BASE_HIDE_Y + 0.3f;
+    rl_clear(&g_rl);
+    draw_ragdoll(&g_rl, &cam, &rp.r[r], &g_rigs[DS_MEDIUM]);
+    CHECK_EQ_INT(count_images(&g_rl, img_dummy(DS_MEDIUM, PART_BASE)), 0);
+    CHECK(count_images(&g_rl, img_dummy(DS_MEDIUM, PART_BODY)) == 1);
+}
+
+static void test_dummy_base_hidden_when_lifted(void) {
+    Dummy d; DummyPose p; Camera cam = { 0 };
+    init_rigs();
+    memset(&d, 0, sizeof d);
+    d.alive = true; d.size = DS_MEDIUM; d.state = DST_WALK; d.x = 0.0f; d.z = 3.0f;
+    camera_set_aim(&cam, 1); camera_update(&cam);
+    pose_for_state(&d, 0, &p);
+    p.lift_m = 0.0f;
+    rl_clear(&g_rl);
+    draw_dummy(&g_rl, &cam, &d, &g_rigs[DS_MEDIUM], &p);
+    CHECK_EQ_INT(count_images(&g_rl, img_dummy(DS_MEDIUM, PART_BASE)), 1);
+    p.lift_m = RAGDOLL_BASE_HIDE_Y + 0.2f;
+    rl_clear(&g_rl);
+    draw_dummy(&g_rl, &cam, &d, &g_rigs[DS_MEDIUM], &p);
+    CHECK_EQ_INT(count_images(&g_rl, img_dummy(DS_MEDIUM, PART_BASE)), 0);
+    CHECK_EQ_INT(count_images(&g_rl, img_dummy(DS_MEDIUM, PART_BODY)), 1);
+}
+
 void suite_ragdoll(void) {
+    test_ragdoll_base_hidden_when_airborne();
+    test_dummy_base_hidden_when_lifted();
     test_ragdoll_pool_full();
     test_ragdoll_falls_and_rests();
     test_ragdoll_constraints_hold();

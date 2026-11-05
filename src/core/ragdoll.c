@@ -322,7 +322,7 @@ void draw_ragdoll(RenderList* rl, const Camera* cam, const Ragdoll* r, const Dum
     body_ok = ok[RP_BODY_LO] && ok[RP_BODY_HI];
     sb = 0.5f * (scale[RP_BODY_LO] + scale[RP_BODY_HI]);
 
-    if (ok[RP_BASE] && ok[RP_BODY_LO]) {
+    if (ok[RP_BASE] && ok[RP_BODY_LO] && r->p[RP_BASE].y <= RAGDOLL_BASE_HIDE_Y) {
         ang = up_angle(s[RP_BASE], s[RP_BODY_LO]);
         rl_bitmap(rl, img_dummy((DummySize)sz, PART_BASE), s[RP_BASE].x, s[RP_BASE].y, ang, 0.5f, 0.5f,
                   scale[RP_BASE], scale[RP_BASE], false);
