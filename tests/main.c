@@ -11,6 +11,8 @@ void suite_render_list(void);
 void suite_draw_world(void);
 void suite_bench(void);
 void suite_rig(void);
+void suite_hallway(void);
+void suite_dummy(void);
 
 int main(void) {
     RUN(smoke);
@@ -22,6 +24,8 @@ int main(void) {
     RUN(draw_world);
     RUN(bench);
     RUN(rig);
+    RUN(hallway);
+    RUN(dummy);
     if (g_failures > 0) {
         printf("%d check(s) failed\n", g_failures);
         return 1;

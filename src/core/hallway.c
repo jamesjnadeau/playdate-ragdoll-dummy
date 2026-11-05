@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 #include "hallway.h"
 #include "tuning.h"
 
@@ -109,4 +110,65 @@ void draw_hallway(RenderList* rl, const Camera* cam) {
     line_z(rl, cam, HALL_HALF_W, 0.0f, zn, zf, 2);
     line_z(rl, cam, -HALL_HALF_W, HALL_H, zn, zf, 2);
     line_z(rl, cam, HALL_HALF_W, HALL_H, zn, zf, 2);
+}
+
+void hallway_init(Hallway* h, Rng* rng) {
+    (void)rng;
+    memset(h, 0, sizeof(*h));
+    h->next_z = DOOR_FIRST_Z;
+}
+
+int hallway_dummies_for_door(float z) {
+    int n = 1 + (int)(z / DOOR_DUMMIES_PER_Z);
+    if (n < 1) n = 1;
+    if (n > DOOR_MAX_DUMMIES) n = DOOR_MAX_DUMMIES;
+    return n;
+}
+
+DummySize hallway_pick_size(Rng* rng, float z) {
+    int n = 1;
+    if (z >= DOOR_MEDIUM_FROM_Z) n = 2;
+    if (z >= DOOR_LARGE_FROM_Z) n = 3;
+    return (DummySize)rng_range(rng, 0, n - 1);
+}
+
+static void add_door(Hallway* h, Rng* rng) {
+    Door* d = &h->doors[h->ndoors++];
+    d->side = rng_range(rng, 0, 1) ? 1 : -1;
+    d->z = h->next_z;
+    d->state = DOOR_CLOSED_FULL;
+    d->remaining = hallway_dummies_for_door(d->z);
+    d->spawn_timer = 0;
+    d->leaf_angle = 0.0f;
+    h->next_z = d->z + DOOR_LEN + DOOR_GAP_MIN + (DOOR_GAP_MAX - DOOR_GAP_MIN) * rng_f01(rng);
+}
+
+void hallway_update(Hallway* h, Rng* rng, float player_z) {
+    int i, keep = 0;
+    /* Recycle doors more than DOOR_RECYCLE_BEHIND behind the player (they are in z order). */
+    h->recycled = 0;
+    if (h->next_z < player_z - DOOR_RECYCLE_BEHIND) h->next_z = player_z;   /* large jump */
+    while (keep < h->ndoors && h->doors[keep].z < player_z - DOOR_RECYCLE_BEHIND) keep++;
+    if (keep > 0) {
+        for (i = keep; i < h->ndoors; i++) h->doors[i - keep] = h->doors[i];
+        h->ndoors -= keep;
+        h->recycled = keep;
+    }
+    /* Generate ahead; also guarantee a door within DOOR_GAP_MAX of the far plane. */
+    while (h->ndoors < MAX_DOORS &&
+           (h->next_z <= player_z + FAR_Z ||
+            (h->ndoors > 0 && h->doors[h->ndoors - 1].z < player_z + FAR_Z - DOOR_GAP_MAX))) {
+        add_door(h, rng);
+    }
+    for (i = 0; i < h->ndoors; i++) {
+        Door* d = &h->doors[i];
+        if (d->state == DOOR_CLOSED_FULL && d->z - player_z < DOOR_ACTIVATE_DIST) {
+            d->state = DOOR_OPEN;
+            d->spawn_timer = DOOR_SPAWN_INTERVAL;
+        }
+        if (d->state == DOOR_OPEN && d->leaf_angle < 1.0f) {
+            d->leaf_angle += DOOR_LEAF_STEP;
+            if (d->leaf_angle > 1.0f) d->leaf_angle = 1.0f;
+        }
+    }
 }

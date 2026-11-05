@@ -7,11 +7,16 @@
 #include "rng.h"
 #include "input.h"
 #include "bench.h"
+#include "hallway.h"
+#include "dummy.h"
 
 typedef struct Game {
     Camera cam;
     RenderList rl;
     Rng rng;
+    Hallway hall;
+    DummyPool dummies;
+    int pending_damage;   /* damage dealt to the player, consumed by Task 9 */
 } Game;
 
 void game_init(Game* g, uint32_t seed);
