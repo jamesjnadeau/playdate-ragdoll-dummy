@@ -150,6 +150,10 @@
 #define SPEED_LINES 3
 #define SPEED_LINE_GAP_DEG 6.0f
 #define SPEED_LINE_LEN_DEG 22.0f
+/* Dummy hit boxes, as fractions of the rig height. */
+#define HIT_HEAD_HALF_W_FRAC 0.17f
+#define HIT_HEAD_H_FRAC 0.34f
+#define HIT_ARM_PAD_FRAC 0.12f
 /* Impact stars and hurt feedback. */
 #define IMPACT_FRAMES 4
 #define MAX_IMPACTS 8

@@ -194,20 +194,28 @@ static void draw_arm(const DrawCtx* c, const DummyRig* rig, Vec2 shoulder, float
     part(c, PART_FIST, hand, a2, 0.5f, 0.5f, 1.0f);
 }
 
-void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRig* rig, const DummyPose* pose) {
+/* Fills the draw context; false when the dummy is not drawn (behind the near plane, past FAR_Z, off the sides). */
+static bool make_ctx(DrawCtx* c, const Camera* cam, const Dummy* d, const DummyRig* rig, const DummyPose* pose) {
     Vec3 w;
     float sx, sy, ppm;
+
+    w.x = d->x; w.y = pose->lift_m; w.z = d->z;
+    if (!camera_project(cam, w, &sx, &sy, &ppm)) return false;
+    if (d->z - cam->player_z > FAR_Z) return false;
+    if (sx + ppm * dummy_height(d->size) < 0.0f || sx - ppm * dummy_height(d->size) > 400.0f) return false;
+    c->bx = sx; c->by = sy;
+    c->s = ppm * dummy_height(d->size) / rig->height_px;
+    c->lean = pose->lean_deg; c->lsin = rsin_deg(c->lean); c->lcos = rcos_deg(c->lean); c->psx = pose->sx; c->psy = pose->sy;
+    c->size = (int)d->size;
+    return true;
+}
+
+void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRig* rig, const DummyPose* pose) {
     DrawCtx c;
     Vec2 origin = { 0.0f, 0.0f }, head, face;
 
-    w.x = d->x; w.y = pose->lift_m; w.z = d->z;
-    if (!camera_project(cam, w, &sx, &sy, &ppm)) return;
-    if (d->z - cam->player_z > FAR_Z) return;
-    if (sx + ppm * dummy_height(d->size) < 0.0f || sx - ppm * dummy_height(d->size) > 400.0f) return;
-    c.rl = rl; c.bx = sx; c.by = sy;
-    c.s = ppm * dummy_height(d->size) / rig->height_px;
-    c.lean = pose->lean_deg; c.lsin = rsin_deg(c.lean); c.lcos = rcos_deg(c.lean); c.psx = pose->sx; c.psy = pose->sy;
-    c.size = (int)d->size;
+    c.rl = rl;
+    if (!make_ctx(&c, cam, d, rig, pose)) return;
 
     if (pose->lift_m <= RAGDOLL_BASE_HIDE_Y) part(&c, PART_BASE, origin, 0.0f, 0.5f, 0.5f, 1.0f);
     part(&c, PART_BODY, rig->body_center, 0.0f, 0.5f, 0.5f, 1.0f);
@@ -218,6 +226,38 @@ void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRi
     /* The head image sits on the neck anchor (bottom centre); the face is centred on its anchor. */
     part(&c, PART_HEAD, head, pose->head_rot_deg, 0.5f, 1.0f, pose->head_sy);
     part(&c, pose->face, face, pose->head_rot_deg, 0.5f, 0.5f, pose->head_sy);
+}
+
+/* Axis-aligned screen bound of a rig-space rectangle, each corner taken through to_screen. */
+static ScreenBox rig_box(const DrawCtx* c, float x0, float y0, float x1, float y1) {
+    Vec2 q[4];
+    ScreenBox b;
+    int i;
+    q[0].x = x0; q[0].y = y0; q[1].x = x1; q[1].y = y0;
+    q[2].x = x1; q[2].y = y1; q[3].x = x0; q[3].y = y1;
+    for (i = 0; i < 4; i++) q[i] = to_screen(c, q[i]);
+    b.x0 = b.x1 = q[0].x; b.y0 = b.y1 = q[0].y;
+    for (i = 1; i < 4; i++) {
+        if (q[i].x < b.x0) b.x0 = q[i].x;
+        if (q[i].x > b.x1) b.x1 = q[i].x;
+        if (q[i].y < b.y0) b.y0 = q[i].y;
+        if (q[i].y > b.y1) b.y1 = q[i].y;
+    }
+    return b;
+}
+
+bool dummy_hit_boxes(const Camera* cam, const Dummy* d, const DummyRig* rig, const DummyPose* pose,
+                     ScreenBox* head, ScreenBox* body) {
+    DrawCtx c;
+    float h = rig->height_px, hx = rig->neck.x + pose->head_dx, hy = rig->neck.y + pose->head_dy;
+
+    c.rl = 0;
+    if (!make_ctx(&c, cam, d, rig, pose)) return false;
+    *head = rig_box(&c, hx - HIT_HEAD_HALF_W_FRAC * h, hy - HIT_HEAD_H_FRAC * h,
+                    hx + HIT_HEAD_HALF_W_FRAC * h, hy);
+    *body = rig_box(&c, rig->shoulder_l.x - HIT_ARM_PAD_FRAC * h, rig->neck.y,
+                    rig->shoulder_r.x + HIT_ARM_PAD_FRAC * h, 0.0f);
+    return true;
 }
 
 /* ---- doors ---- */

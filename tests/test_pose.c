@@ -85,7 +85,98 @@ static void test_pose_downward_and_diagonal(void) {
     CHECK(!p.teeth && !p.stars);
 }
 
+static DummyRig g_rig[DS_COUNT];
+
+static void setup_box(DummySize sz, float z, Dummy* d, DummyPose* p) {
+    for (int i = 0; i < DS_COUNT; i++) rig_default((DummySize)i, &g_rig[i]);
+    memset(d, 0, sizeof *d);
+    d->alive = true; d->size = sz; d->state = DST_WALK; d->x = 0.0f; d->z = z;
+    pose_for_state(d, 0, p);
+}
+
+static Camera box_cam(void) {
+    Camera cam;
+    memset(&cam, 0, sizeof cam);
+    cam.aim = 1;
+    camera_update(&cam);
+    return cam;
+}
+
+static void test_hit_boxes_contain_anchor_points(void) {
+    Camera cam = box_cam();
+    Dummy d; DummyPose p; ScreenBox hd, bd;
+    const DummyRig* rig;
+    Vec3 w; float sx, sy, ppm;
+    setup_box(DS_MEDIUM, 2.0f, &d, &p);
+    rig = &g_rig[DS_MEDIUM];
+    CHECK(dummy_hit_boxes(&cam, &d, rig, &p, &hd, &bd));
+    w.x = d.x; w.z = d.z;
+    w.y = -rig->face_center.y / rig->height_px * dummy_height(d.size);
+    CHECK(camera_project(&cam, w, &sx, &sy, &ppm));
+    CHECK(sx >= hd.x0 && sx <= hd.x1 && sy >= hd.y0 && sy <= hd.y1);
+    w.y = -rig->body_center.y / rig->height_px * dummy_height(d.size);
+    CHECK(camera_project(&cam, w, &sx, &sy, &ppm));
+    CHECK(sx >= bd.x0 && sx <= bd.x1 && sy >= bd.y0 && sy <= bd.y1);
+}
+
+static void test_head_above_body(void) {
+    Camera cam = box_cam();
+    Dummy d; DummyPose p; ScreenBox hd, bd;
+    float sx, sy, ppm; Vec3 w;
+    setup_box(DS_MEDIUM, 2.0f, &d, &p);
+    CHECK(dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &hd, &bd));
+    CHECK(hd.y1 <= bd.y0 + 1.0f);
+    CHECK(hd.x0 <= hd.x1 && hd.y0 <= hd.y1 && bd.x0 <= bd.x1 && bd.y0 <= bd.y1);
+    w.x = d.x; w.y = p.lift_m; w.z = d.z;
+    CHECK(camera_project(&cam, w, &sx, &sy, &ppm));
+    CHECK_NEAR((hd.x0 + hd.x1) * 0.5f, sx, 2.0f);
+    CHECK_NEAR((bd.x0 + bd.x1) * 0.5f, sx, 2.0f);
+}
+
+static void test_boxes_scale_with_size(void) {
+    Camera cam = box_cam();
+    Dummy d; DummyPose p; ScreenBox hs, bs, hl, bl, hf, bf;
+    setup_box(DS_SMALL, 2.0f, &d, &p);
+    CHECK(dummy_hit_boxes(&cam, &d, &g_rig[DS_SMALL], &p, &hs, &bs));
+    setup_box(DS_LARGE, 2.0f, &d, &p);
+    CHECK(dummy_hit_boxes(&cam, &d, &g_rig[DS_LARGE], &p, &hl, &bl));
+    CHECK((bl.y1 - bl.y0) > (bs.y1 - bs.y0));
+    setup_box(DS_MEDIUM, 2.0f, &d, &p);
+    CHECK(dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &hs, &bs));
+    d.z = 6.0f;
+    CHECK(dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &hf, &bf));
+    CHECK((bf.y1 - bf.y0) < (bs.y1 - bs.y0));
+    CHECK((bf.x1 - bf.x0) < (bs.x1 - bs.x0));
+}
+
+static void test_boxes_none_when_not_drawn(void) {
+    Camera cam = box_cam();
+    Dummy d; DummyPose p; ScreenBox hd, bd;
+    setup_box(DS_MEDIUM, 2.0f, &d, &p);
+    d.z = cam.player_z + 0.1f;
+    CHECK(!dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &hd, &bd));
+    d.z = cam.player_z + FAR_Z + 1.0f;
+    CHECK(!dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &hd, &bd));
+}
+
+static void test_boxes_follow_aim(void) {
+    Camera cam = box_cam();
+    Dummy d; DummyPose p; ScreenBox h1, b1, h2, b2;
+    setup_box(DS_MEDIUM, 2.0f, &d, &p);
+    CHECK(dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &h1, &b1));
+    camera_set_aim(&cam, 2);
+    for (int i = 0; i < 200; i++) camera_update(&cam);
+    CHECK(dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &h2, &b2));
+    CHECK(h2.y0 != h1.y0);
+    CHECK(b2.y0 != b1.y0);
+}
+
 void suite_pose(void) {
+    test_hit_boxes_contain_anchor_points();
+    test_head_above_body();
+    test_boxes_scale_with_size();
+    test_boxes_none_when_not_drawn();
+    test_boxes_follow_aim();
     test_pose_reaction_end_matches_walk_frame();
     test_pose_upward_head_back();
     test_pose_from_left_mirror();
