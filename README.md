@@ -14,3 +14,15 @@ I'd like this game to be a 3d perspective, but keep the art assets 2d. Keep in m
 I want the art to be modular, so folks can easily swap in their own work to make the game fresh and entertaining. 
 The fun is hitting things and seeing how they react. There should be reactions to each of the directions someone hits from, and it should be funny and fun to play.
 I'd like for this to be built in C and run on the playdate SDK.
+
+## Building and running
+
+Needs the Playdate SDK (`PLAYDATE_SDK_PATH`, default `~/Developer/PlaydateSDK-3.1.2`). Deploying also needs `arm-none-eabi-gcc` and `udisksctl`.
+
+```
+tools/sim.sh            # build RagdollDummies.pdx and open it in the simulator
+tools/deploy.sh         # build for hardware, copy it to a USB-connected Playdate and launch it
+make test               # host unit tests (no SDK needed)
+```
+
+`tools/deploy.sh` finds the Playdate's serial port, puts it in data-disk mode, copies the game into `Games/`, ejects it and starts the game. Pass `--port` to pick the port, `--no-run` to skip the launch, or `--keep-mounted` to leave the disk mounted. `tools/sim.sh --no-run` only builds.
