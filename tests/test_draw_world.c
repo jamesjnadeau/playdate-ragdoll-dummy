@@ -138,16 +138,23 @@ static void test_door_leaf_swings_into_hallway(void) {
             float x, z;
             door_leaf_free_edge(&d, &x, &z);
             CHECK(fabsf(x) <= HALL_HALF_W + 1e-5f);
-            CHECK(z <= d.z + DOOR_LEN + 1e-5f);
+            CHECK(z >= d.z - 1e-4f);                 /* hinge is the near edge */
+            CHECK(z <= d.z + DOOR_LEN + 1e-4f);
             if (a >= 0.5f) {
                 CHECK(fabsf(x) < HALL_HALF_W);
-                CHECK(z < d.z + DOOR_LEN);
-                CHECK(x * (float)side > 0.0f);   /* still on its own half, never through the wall */
+                CHECK(x * (float)side > 0.0f);       /* never through the wall */
             }
+        }
+        {
+            Door d = { side, 5.0f, DOOR_OPEN, 1, 0, 1.0f };
+            float x, z;
+            door_leaf_free_edge(&d, &x, &z);
+            CHECK_NEAR(z, d.z, 1e-4f);               /* fully open: perpendicular to the wall */
+            CHECK(fabsf(x) < HALL_HALF_W);
         }
     }
     {
-        Door r = { 1, 5.0f, DOOR_OPEN, 1, 0, 1.0f }, l = { -1, 5.0f, DOOR_OPEN, 1, 0, 1.0f };
+        Door r = { 1, 5.0f, DOOR_OPEN, 1, 0, 0.6f }, l = { -1, 5.0f, DOOR_OPEN, 1, 0, 0.6f };
         door_leaf_free_edge(&r, &xr, &zr);
         door_leaf_free_edge(&l, &xl, &zl);
         CHECK_NEAR(xl, -xr, 1e-6f);

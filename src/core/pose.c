@@ -141,7 +141,7 @@ void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRi
 
 #define DOOR_H 2.1f
 #define FRAME_T 0.09f           /* frame thickness in metres */
-#define LEAF_MAX_DEG 80.0f
+#define LEAF_MAX_DEG 90.0f
 #define PANEL_DETAIL_DIST 9.0f
 
 static void dproj(const Camera* cam, float x, float y, float z, float* sx, float* sy) {
@@ -180,9 +180,10 @@ static void wall_box(RenderList* rl, const Camera* cam, float x, float z0, float
 
 void door_leaf_free_edge(const Door* door, float* x, float* z) {
     float ang = clampf(door->leaf_angle, 0.0f, 1.0f) * LEAF_MAX_DEG;
-    /* Hinged at the far edge (z + DOOR_LEN); swings into the hallway (-side) toward smaller z. */
+    /* Hinged on the wall at the near edge (door->z); swings into the hallway (-side). Fully open it is
+       perpendicular to the wall. */
     *x = (float)door->side * (HALL_HALF_W - DOOR_LEN * rsin_deg(ang));
-    *z = door->z + DOOR_LEN - DOOR_LEN * rcos_deg(ang);
+    *z = door->z + DOOR_LEN * rcos_deg(ang);
 }
 
 void draw_door(RenderList* rl, const Camera* cam, const Door* door) {
@@ -196,9 +197,9 @@ void draw_door(RenderList* rl, const Camera* cam, const Door* door) {
         float xy[8];
         door_leaf_free_edge(door, &xf, &zf);
         wall_quad(rl, cam, x, z0, z1, 0.0f, DOOR_H, PAT_BLACK);   /* doorway */
-        /* Hinged at the far edge so the swung leaf folds toward the player and leaves the doorway visible. */
-        dproj(cam, x, 0.0f, z1, &xy[0], &xy[1]);
-        dproj(cam, x, DOOR_H, z1, &xy[2], &xy[3]);
+        /* Hinged at the near edge. */
+        dproj(cam, x, 0.0f, z0, &xy[0], &xy[1]);
+        dproj(cam, x, DOOR_H, z0, &xy[2], &xy[3]);
         dproj(cam, xf, DOOR_H, zf, &xy[4], &xy[5]);
         dproj(cam, xf, 0.0f, zf, &xy[6], &xy[7]);
         rl_poly(rl, xy, 4, PAT_WHITE);
