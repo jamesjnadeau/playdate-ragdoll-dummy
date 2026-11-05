@@ -1,7 +1,7 @@
-# Ragdoll Dummy: game design
+# Ragdoll Dummies: game design
 
 Date: 2026-11-05
-Status: draft for approval
+Status: approved by owner 2026-11-05
 Mockups: https://claude.ai/artifact/6XxUjYLN4wmZ7db4HFTCA7 (first-person screen, dummy reactions)
 
 Throughout this document, **Decided** marks what the project owner chose and
@@ -152,8 +152,8 @@ active pack selection (§8).
   (`make`, `make device_bin`), which produces the `pdex.elf` pdsim expects.
 - **Host tests:** a separate CMake (or Make) target that compiles
   `src/core` + `tests/` with the host compiler and runs them.
-- **Builder's call (proposed):** bundle id `com.jamesjnadeau.ragdolldummy`,
-  game name "Ragdoll Dummy".
+- **Decided:** game name "Ragdoll Dummies", bundle id
+  `com.jamesjnadeau.ragdolldummies`.
 
 ## 6. The game
 
@@ -181,12 +181,12 @@ come from behind (§6.7), so no rear warning is needed.
 - Crank: swings the weapon. Crank direction sets upward vs downward swing.
 - Swing strength comes from crank speed.
 
-**Builder's call (proposed):**
+**Builder's call (owner did not object):**
 - No left/right held = a centre swing (straight uppercut or straight
   overhead chop, by crank direction).
 - Crank clockwise (forward) = downward/overhead swing; counter-clockwise =
   upward swing.
-- Aim has three levels (low, middle, high). Up/down steps between them; the
+- Aim has three levels (low, middle, high) (Decided). Up/down steps between them; the
   camera pitch eases to the level. Low aim is needed to hit small dummies'
   heads; high aim reaches large dummies' heads.
 - A swing triggers when crank speed over the last few frames passes a
@@ -201,8 +201,9 @@ come from behind (§6.7), so no rear warning is needed.
 - Weapons are picked up during the run, from a choice.
 
 **Builder's call (proposed):**
-- Between waves, a pickup offers 2–3 weapons with speed and power bars; the
-  chosen one replaces the current one.
+- **Decided:** between waves, one weapon is offered. The player sees it
+  next to their current weapon (speed and power bars for both) and either
+  keeps what they have or takes the new one.
 - Weapon stats live in game data (`src/core/weapons.c`), not in packs: name,
   delay (frames), power, reach (metres), arc width, ragdoll launch force.
 - First-release roster of four, light to heavy: rubber chicken, baseball bat
@@ -257,6 +258,13 @@ Reactions (from the mockups, with owner feedback applied):
   hallway): base, lower body, upper body, head, two elbows, two fists, with
   distance constraints and a few iterations per step. Initial velocity comes
   from the knockout hit's direction and weapon launch force.
+- **Decided:** a flying ragdoll knocks into live dummies in its path and
+  damages them (more damage at higher speed), and can knock them back or
+  out, so one big hit can bowl through a crowd.
+- **Decided:** a flying ragdoll that hits an open door slams it shut. The
+  dummies still inside stay in; the door counts as a door that still has
+  dummies, so it bursts open again as the player tries to pass (§6.7). A
+  dummy that is in the doorway when it slams takes damage.
 - Collides with floor, ceiling and both walls. Impact speed above a threshold
   reduces ragdoll health; at zero it bursts. Big hits can burst on the first
   wall.
