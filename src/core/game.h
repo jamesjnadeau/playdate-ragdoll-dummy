@@ -80,7 +80,7 @@ void game_push_sound(Game* g, SoundId id);
 void game_set_rigs(Game* g, const DummyRig rigs[DS_COUNT]);
 /* Copies the platform-measured weapon rigs (image sizes) into the game. */
 void game_set_weapon_rigs(Game* g, const WeaponRig wrigs[WEAPON_COUNT]);
-/* Applies the bests loaded from the save file (call after game_init). */
+/* Applies the bests loaded from the save file (call after game_init). Never lowers a best already held. */
 void game_apply_bests(Game* g, int best_bags, int best_distance_m);
 void game_update(Game* g, const GameInput* in);
 /* Starts a benchmark scene. Other scenes behave like WALK until their task. */

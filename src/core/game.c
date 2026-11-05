@@ -63,8 +63,9 @@ void game_knock_out(Game* g, int dummy, Vec3 launch) {
 }
 
 void game_apply_bests(Game* g, int best_bags, int best_distance_m) {
-    g->best_bags = best_bags < 0 ? 0 : best_bags;
-    g->best_distance = best_distance_m < 0 ? 0.0f : (float)best_distance_m;
+    /* Only ever raises: a bench scene or run that already set a better best keeps it. */
+    if (best_bags > g->best_bags) g->best_bags = best_bags;
+    if ((float)best_distance_m > g->best_distance) g->best_distance = (float)best_distance_m;
 }
 
 void game_set_weapon_rigs(Game* g, const WeaponRig wrigs[WEAPON_COUNT]) {

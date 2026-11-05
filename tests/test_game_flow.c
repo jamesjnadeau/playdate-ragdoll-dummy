@@ -684,6 +684,28 @@ static void test_crank_hint(void) {
     CHECK(!has_text(&g_.rl, "Use the crank!"));
 }
 
+/* The game-over screen shows the bests after this run's update, whatever order the save was applied in. */
+static void test_game_over_shows_updated_bests(void) {
+    BenchConfig c;
+    c.distance = 0.0f; c.seed = 1; c.scene = BENCH_GAMEOVER;
+    game_start_bench(&g_, &c);
+    game_apply_bests(&g_, 0, 0);   /* main applies the (older) save after the scene is built */
+    game_render(&g_);
+    CHECK(has_text(&g_.rl, "BAGGED: 14"));
+    CHECK(has_text(&g_.rl, "Best bags: 14"));
+    CHECK(has_text(&g_.rl, "Best distance: 120m"));
+    CHECK(has_text(&g_.rl, "NEW BEST!"));
+    /* the real death path */
+    start(3);
+    game_apply_bests(&g_, 2, 5);
+    g_.bags = 14;
+    g_.player.z = 120.0f;
+    kill_player();
+    game_render(&g_);
+    CHECK(has_text(&g_.rl, "Best bags: 14"));
+    CHECK(has_text(&g_.rl, "Best distance: 120m"));
+}
+
 static void test_bench_title_scenes(void) {
     BenchConfig c;
     c.distance = 0.0f; c.seed = 1;
@@ -735,5 +757,6 @@ void suite_game_flow(void) {
     test_sound_door_slam();
     test_sound_queue_dedupes_and_is_bounded();
     test_crank_hint();
+    test_game_over_shows_updated_bests();
     test_bench_title_scenes();
 }
