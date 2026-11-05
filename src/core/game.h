@@ -16,6 +16,7 @@
 #include "ragdoll.h"
 #include "particles.h"
 #include "weapons.h"
+#include "save.h"
 #include "tuning.h"
 
 typedef enum { MODE_TITLE, MODE_PLAY, MODE_OFFER, MODE_GAME_OVER, MODE_SKINS, MODE_CREDITS } GameMode;
@@ -50,6 +51,13 @@ typedef struct Game {
     ParticlePool particles;
     BenchScene bench;     /* BENCH_NONE for a normal game */
     int hurt_t;           /* frames of hurt shake left; the frame it starts on also inverts */
+    uint8_t held;         /* buttons held in the last update, for the swing-side HUD indicator */
+    int bags;             /* this run: knockouts plus bursts */
+    float best_distance;  /* metres, from the save file and this run */
+    int best_bags;
+    int seen_new_best;    /* this run's death set a new best (the game-over screen shows it) */
+    bool save_dirty;      /* the platform must write the save file, then clear this */
+    bool death_handled;   /* the run's death has been scored */
 } Game;
 
 void game_init(Game* g, uint32_t seed);
@@ -57,6 +65,8 @@ void game_init(Game* g, uint32_t seed);
 void game_set_rigs(Game* g, const DummyRig rigs[DS_COUNT]);
 /* Copies the platform-measured weapon rigs (image sizes) into the game. */
 void game_set_weapon_rigs(Game* g, const WeaponRig wrigs[WEAPON_COUNT]);
+/* Applies the bests loaded from the save file (call after game_init). */
+void game_apply_bests(Game* g, int best_bags, int best_distance_m);
 void game_update(Game* g, const GameInput* in);
 /* Starts a benchmark scene. Other scenes behave like WALK until their task. */
 void game_start_bench(Game* g, const BenchConfig* cfg);

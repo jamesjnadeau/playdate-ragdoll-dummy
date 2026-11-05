@@ -21,6 +21,11 @@ void game_init(Game* g, uint32_t seed) {
     for (i = 0; i < WEAPON_COUNT; i++) weapon_rig_default(i, &g->wrigs[i]);
 }
 
+void game_apply_bests(Game* g, int best_bags, int best_distance_m) {
+    g->best_bags = best_bags < 0 ? 0 : best_bags;
+    g->best_distance = best_distance_m < 0 ? 0.0f : (float)best_distance_m;
+}
+
 void game_set_weapon_rigs(Game* g, const WeaponRig wrigs[WEAPON_COUNT]) {
     memcpy(g->wrigs, wrigs, sizeof(g->wrigs));
 }
@@ -170,8 +175,26 @@ static void offer_update(Game* g, const GameInput* in) {
     g->mode = MODE_PLAY;
 }
 
+/* The run just ended: a new best bag count or distance is kept and flagged for saving. */
+static void handle_death(Game* g) {
+    g->death_handled = true;
+    if (g->bags > g->best_bags) { g->best_bags = g->bags; g->seen_new_best = 1; }
+    if ((int)g->player.z > (int)g->best_distance) { g->best_distance = (float)(int)g->player.z; g->seen_new_best = 1; }
+    if (g->seen_new_best) g->save_dirty = true;
+}
+
+/* A dummy entering DST_RAGDOLL is a knockout: one bag, once per dummy. */
+static void score_knockouts(Game* g) {
+    int i;
+    for (i = 0; i < MAX_DUMMIES; i++) {
+        Dummy* d = &g->dummies.d[i];
+        if (d->alive && d->state == DST_RAGDOLL && !d->scored) { d->scored = true; g->bags++; }
+    }
+}
+
 void game_update(Game* g, const GameInput* in) {
     int i, pev;
+    g->held = in->held;
     if (g->mode == MODE_OFFER) { offer_update(g, in); return; }
     if (g->mode != MODE_PLAY) return;   /* other modes come in later tasks */
     for (i = 0; i < MAX_IMPACTS; i++) if (g->impacts[i].t > 0) g->impacts[i].t--;
@@ -179,6 +202,7 @@ void game_update(Game* g, const GameInput* in) {
     pev = player_update(&g->player, in, &g->hall, &g->dummies, g->pending_damage);
     if (pev & PEV_HURT) g->hurt_t = HURT_SHAKE_FRAMES;
     g->pending_damage = 0;
+    if (g->player.dead && !g->death_handled) handle_death(g);
     g->cam.player_z = g->player.z;
     maybe_place_pickup(g);
     if (g->pickup_z >= 0.0f && fabsf(g->pickup_z - g->player.z) <= PICKUP_RADIUS) g->mode = MODE_OFFER;
@@ -229,12 +253,14 @@ void game_update(Game* g, const GameInput* in) {
         RagdollStepOut ro;
         ragdoll_step(&g->ragdolls, &g->dummies, &g->hall, g->rigs, &ro);
         g->nbursts = ro.burst_count;
+        g->bags += ro.burst_count;   /* a burst is worth one more bag; each ragdoll bursts once */
         for (i = 0; i < ro.burst_count; i++) {
             g->bursts[i] = ro.burst_at[i];
             g->burst_n[i] = ro.burst_n[i];
             particles_burst(&g->particles, &g->rng, ro.burst_at[i], ro.burst_n[i]);
         }
     }
+    score_knockouts(g);
     particles_step(&g->particles);
 }
 
@@ -259,6 +285,7 @@ void game_render(Game* g) {
         if (g->impacts[i].t > 0) draw_impact(&g->rl, g->impacts[i].x, g->impacts[i].y, g->impacts[i].r);
     draw_weapon(&g->rl, &g->swing, &g->wrigs[g->weapon], IMG_WEAPON_HELD0 + (int)g->weapon);
     rl_hud_begin(&g->rl);   /* always: everything drawn from here on (HUD, panels) fits however busy the world was */
+    if (g->mode == MODE_PLAY || g->mode == MODE_OFFER) hud_draw_play(&g->rl, g);
     if (g->mode == MODE_OFFER) {
         rl_rect(&g->rl, 0.0f, 0.0f, SCREEN_W, SCREEN_H, PAT_DIM, false);
         hud_draw_offer(&g->rl, g->weapon, g->offer);

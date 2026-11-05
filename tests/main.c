@@ -20,6 +20,8 @@ void suite_pose(void);
 void suite_ragdoll(void);
 void suite_particles(void);
 void suite_game_flow(void);
+void suite_save(void);
+void suite_hud(void);
 
 int main(void) {
     RUN(smoke);
@@ -40,6 +42,8 @@ int main(void) {
     RUN(ragdoll);
     RUN(particles);
     RUN(game_flow);
+    RUN(save);
+    RUN(hud);
     if (g_failures > 0) {
         printf("%d check(s) failed\n", g_failures);
         return 1;

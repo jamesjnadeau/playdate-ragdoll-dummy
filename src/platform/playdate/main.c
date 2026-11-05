@@ -8,14 +8,38 @@
 #include "pd_assets.h"
 #include "rig.h"
 #include "bench.h"
+#include "save.h"
 
 static PlaydateAPI* g_pd = NULL;
 static Game g_game;
 static LCDBitmap* g_images[IMG_COUNT];
 static DummyRig g_rigs[DS_COUNT];
 static WeaponRig g_wrigs[WEAPON_COUNT];
+static SaveData g_save;
 static volatile float g_probe = 0.0f;
 static volatile float g_probe_in = 0.5f;
+
+#define SAVE_PATH "save.txt"
+#define SAVE_MAX_BYTES 4096
+
+static void save_load(PlaydateAPI* pd) {
+    int len = 0;
+    char* txt = pd_read_file(pd, SAVE_PATH, &len, SAVE_MAX_BYTES);
+    if (txt) save_read(txt, len, &g_save);
+    else save_defaults(&g_save);
+    if (txt) pd->system->realloc(txt, 0);
+}
+
+/* Writes the bests the game just earned, keeping the rest of the file (pack selections) as loaded. */
+static void save_flush(PlaydateAPI* pd) {
+    char buf[SAVE_MAX_BYTES];
+    int n;
+    g_save.best_bags = g_game.best_bags;
+    g_save.best_distance_m = (int)g_game.best_distance;
+    n = save_write(&g_save, buf, (int)sizeof(buf));
+    if (n > 0 && pd_write_file(pd, SAVE_PATH, buf, n)) g_game.save_dirty = false;
+    else pd->system->logToConsole("save.txt write failed");
+}
 
 static int update(void* userdata) {
     GameInput in;
@@ -23,6 +47,7 @@ static int update(void* userdata) {
     pd_input_read(g_pd, &in);
     game_update(&g_game, &in);
     game_render(&g_game);
+    if (g_game.save_dirty) save_flush(g_pd);
     pd_render_execute(g_pd, &g_game.rl);
     return 1;
 }
@@ -57,6 +82,8 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg) {
         pd_assets_load_core(pd, g_images, g_rigs, g_wrigs);
         pd_render_set_images(g_images, IMG_COUNT);
         init_game(pd);
+        save_load(pd);
+        game_apply_bests(&g_game, g_save.best_bags, g_save.best_distance_m);
         game_set_rigs(&g_game, g_rigs);
         game_set_weapon_rigs(&g_game, g_wrigs);
         pd->system->setUpdateCallback(update, NULL);

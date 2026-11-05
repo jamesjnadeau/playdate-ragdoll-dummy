@@ -8,7 +8,7 @@
 
 typedef enum { DST_EMERGING, DST_WALK, DST_WINDUP, DST_PUNCH, DST_STAGGER, DST_RAGDOLL, DST_DEAD } DummyState;
 typedef struct {
-    bool alive; DummySize size; DummyState state; int timer;
+    bool alive; bool scored; DummySize size; DummyState state; int timer;
     float x, z, hp, max_hp; int door;          /* door index it came from, -1 none */
     int reaction; int reaction_t;      /* ReactionType (Task 11), frames left */
     int ragdoll;                       /* ragdoll index once knocked out, -1 */

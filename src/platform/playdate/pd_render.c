@@ -158,7 +158,11 @@ static int scale_bucket(float s) {
 static void draw_direct(PlaydateAPI* pd, const RenderCmd* c, LCDBitmap* src) {
     if (c->angle_deg == 0.0f && !c->flip) {
         int w = 0, h = 0;
-        pd->graphics->getBitmapData(src, &w, &h, NULL, NULL, NULL);
+        if (c->cx != 0.0f || c->cy != 0.0f) pd->graphics->getBitmapData(src, &w, &h, NULL, NULL, NULL);   /* size only matters off the top-left */
+        if (c->sx == 1.0f && c->sy == 1.0f) {   /* unscaled (HUD icons): plain drawBitmap is much cheaper */
+            pd->graphics->drawBitmap(src, iround(c->x - c->cx * (float)w), iround(c->y - c->cy * (float)h), kBitmapUnflipped);
+            return;
+        }
         pd->graphics->drawScaledBitmap(src, iround(c->x - c->cx * (float)w * c->sx),
                                        iround(c->y - c->cy * (float)h * c->sy), c->sx, c->sy);
     } else {
@@ -272,6 +276,14 @@ void pd_render_execute(PlaydateAPI* pd, const RenderList* rl) {
             break;
         }
         case RC_LINE:
+            if (c->pts[4] == 1 && c->pts[1] == c->pts[3]) {
+                /* A 1 px horizontal line (the floor cross lines) as a 1 px fillRect: the same pixels, but drawLine is
+                   costed per pixel of length on device and fillRect per row. */
+                int xa = c->pts[0] < c->pts[2] ? c->pts[0] : c->pts[2];
+                int xb = c->pts[0] < c->pts[2] ? c->pts[2] : c->pts[0];
+                gfx->fillRect(xa, c->pts[1], xb - xa + 1, 1, color_of(c->pattern));
+                break;
+            }
             gfx->drawLine(c->pts[0], c->pts[1], c->pts[2], c->pts[3], c->pts[4],
                           color_of(c->pattern));
             break;
