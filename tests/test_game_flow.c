@@ -291,8 +291,8 @@ static void test_hud_offer_panel(void) {
     CHECK_EQ_INT(icon_cur, 1);
     CHECK_EQ_INT(icon_off, 1);
     CHECK(has_cur && has_off);
-    /* filled bars: bat 4+3, sledgehammer 1+6 */
-    CHECK_EQ_INT(filled, 4 + 3 + 1 + 6);
+    /* filled bars: bat weight 2 + power 3, sledgehammer weight 6 + power 6 */
+    CHECK_EQ_INT(filled, 2 + 3 + 6 + 6);
     CHECK_EQ_INT(rl.dropped, 0);
 }
 

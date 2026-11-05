@@ -32,8 +32,8 @@ static void column(RenderList* rl, float x, const char* heading, WeaponId id) {
     rl_text(rl, heading, x, PANEL_Y + 40.0f);
     rl_bitmap(rl, IMG_WEAPON_ICON0 + (int)id, ix, PANEL_Y + 62.0f, 0.0f, 0.0f, 0.0f, ICON_SCALE, ICON_SCALE, false);
     rl_text(rl, w->name, x, PANEL_Y + 132.0f);
-    rl_text(rl, "Speed", x, PANEL_Y + 152.0f);
-    bars(rl, x + 56.0f, PANEL_Y + 154.0f, w->speed_bars);
+    rl_text(rl, "Weight", x, PANEL_Y + 152.0f);
+    bars(rl, x + 56.0f, PANEL_Y + 154.0f, w->weight_bars);
     rl_text(rl, "Power", x, PANEL_Y + 168.0f);
     bars(rl, x + 56.0f, PANEL_Y + 170.0f, w->power_bars);
 }
@@ -145,8 +145,8 @@ void hud_draw_play(RenderList* rl, const struct Game* g) {
     plate(rl, HUD_MARGIN, y, WPN_PLATE_W, WPN_PLATE_H);
     if (w) {
         rl_text(rl, w->name, HUD_MARGIN + 8.0f, y + 3.0f);
-        rl_text(rl, "SPD", HUD_MARGIN + 8.0f, y + 3.0f + WPN_LINE);
-        squares(rl, HUD_MARGIN + 44.0f, y + 3.0f + WPN_LINE + 5.0f, w->speed_bars);
+        rl_text(rl, "WGT", HUD_MARGIN + 8.0f, y + 3.0f + WPN_LINE);
+        squares(rl, HUD_MARGIN + 44.0f, y + 3.0f + WPN_LINE + 5.0f, w->weight_bars);
         rl_text(rl, "PWR", HUD_MARGIN + 8.0f, y + 3.0f + 2.0f * WPN_LINE);
         squares(rl, HUD_MARGIN + 44.0f, y + 3.0f + 2.0f * WPN_LINE + 5.0f, w->power_bars);
     }

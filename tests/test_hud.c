@@ -29,7 +29,7 @@ static void test_hud_text(void) {
     CHECK(has_text(&rl, "x12"));
     CHECK(has_text(&rl, "48m"));
     CHECK(has_text(&rl, "Bat"));
-    CHECK(has_text(&rl, "SPD"));
+    CHECK(has_text(&rl, "WGT"));
     CHECK(has_text(&rl, "PWR"));
     CHECK_EQ_INT(rl.dropped, 0);
 }

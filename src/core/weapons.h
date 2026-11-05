@@ -8,7 +8,8 @@ typedef struct {
     const char* folder;
     int delay;
     float power, reach, arc, launch;
-    int speed_bars, power_bars;
+    float mass, spring, damp;
+    int weight_bars, power_bars;
 } WeaponDef;
 
 /* Returns NULL for an out-of-range id. */

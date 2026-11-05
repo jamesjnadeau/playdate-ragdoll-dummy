@@ -21,6 +21,22 @@ void suite_swing(void) {
     CHECK(weapon_def(W_SLEDGE) != NULL);
     CHECK_EQ_INT(weapon_def(W_PAN)->delay, 7);
     CHECK_EQ_INT(weapon_def(W_SLEDGE)->power_bars, 6);
+    CHECK_NEAR(weapon_def(W_CHICKEN)->mass, 0.4f, 1e-6f);
+    CHECK_NEAR(weapon_def(W_BAT)->mass, 1.0f, 1e-6f);
+    CHECK_NEAR(weapon_def(W_PAN)->mass, 1.4f, 1e-6f);
+    CHECK_NEAR(weapon_def(W_SLEDGE)->mass, 2.6f, 1e-6f);
+    CHECK(weapon_def(W_CHICKEN)->mass < weapon_def(W_BAT)->mass);
+    CHECK(weapon_def(W_BAT)->mass < weapon_def(W_PAN)->mass);
+    CHECK(weapon_def(W_PAN)->mass < weapon_def(W_SLEDGE)->mass);
+    CHECK_EQ_INT(weapon_def(W_CHICKEN)->weight_bars, 1);
+    CHECK_EQ_INT(weapon_def(W_BAT)->weight_bars, 2);
+    CHECK_EQ_INT(weapon_def(W_PAN)->weight_bars, 3);
+    CHECK_EQ_INT(weapon_def(W_SLEDGE)->weight_bars, 6);
+    for (f = 0; f < W_COUNT; f++) {
+        const WeaponDef* d = weapon_def((WeaponId)f);
+        CHECK(d->damp > 0.0f && d->damp <= 1.0f);
+        CHECK(d->spring > 0.0f);
+    }
     CHECK(strcmp(weapon_def(W_CHICKEN)->name, "Rubber Chicken") == 0);
     CHECK(strcmp(weapon_def(W_BAT)->folder, "weapon-bat") == 0);
     CHECK(weapon_def((WeaponId)-1) == NULL);
