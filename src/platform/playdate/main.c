@@ -23,13 +23,18 @@ static int update(void* userdata) {
 }
 
 /* bench.json (data dir only, never shipped) selects a benchmark scene and skips the title. */
+#define BENCH_MAX_BYTES 65536
+
 static void init_game(PlaydateAPI* pd) {
     BenchConfig cfg;
     int len = 0;
-    char* json = pd_read_file(pd, "bench.json", &len);
+    char* json = pd_read_file(pd, "bench.json", &len, BENCH_MAX_BYTES);
     if (json && bench_parse(json, len, &cfg)) {
+        pd->system->logToConsole("bench.json loaded: scene=%d distance=%d seed=%u",
+                                 (int)cfg.scene, (int)cfg.distance, (unsigned)cfg.seed);
         game_start_bench(&g_game, &cfg);
     } else {
+        if (json) pd->system->logToConsole("bench.json INVALID: falling back to a normal game");
         game_init(&g_game, (uint32_t)pd->system->getCurrentTimeMilliseconds());
     }
     if (json) pd->system->realloc(json, 0);

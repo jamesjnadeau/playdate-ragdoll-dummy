@@ -8,23 +8,37 @@ CAL="${PDSIM_CAL:-$ROOT/.pdsim/src/calibration/rev-a.json}"
 export PLAYDATE_SDK_PATH="${PLAYDATE_SDK_PATH:-/root/PlaydateSDK}"
 
 if [ $# -eq 0 ]; then
-    set -- $(cd perf/scenarios && ls -d */ | tr -d /)
+    set -- $(cd perf/scenarios && ls -d */ 2>/dev/null | tr -d /)
+fi
+if [ $# -eq 0 ]; then
+    echo "perf/run.sh: no scenarios found in perf/scenarios/" >&2
+    exit 1
 fi
 mkdir -p build/perf
 
 run_one() {
     local s=$1 dir args
+    rm -f build/perf/"$s".*
+    if [ ! -f "perf/scenarios/$s/bench.json" ] || [ ! -f "perf/scenarios/$s/input.json" ]; then
+        echo "scenario '$s': perf/scenarios/$s/bench.json or input.json missing" > "build/perf/$s.log"
+        return 1
+    fi
     dir=$(mktemp -d)
     trap 'rm -rf "$dir"' RETURN
     cp "perf/scenarios/$s/bench.json" "$dir/bench.json" || return 1
     args=(run build/pdsim-stage --frames 600 --input "perf/scenarios/$s/input.json"
           --calibration "$CAL" --data-dir "$dir" --report "build/perf/$s.json"
           --frames-out "build/perf/$s.jsonl" --screenshot "build/perf/$s.png"
-          --max-over-budget 0 -q)
+          --max-over-budget 0)
     if [ -f "perf/scenarios/$s/max_avg_ms" ]; then
         args+=(--max-avg-ms "$(tr -d '[:space:]' < "perf/scenarios/$s/max_avg_ms")")
     fi
-    "$PDSIM" "${args[@]}" > "build/perf/$s.log" 2>&1
+    "$PDSIM" "${args[@]}" > "build/perf/$s.log" 2>&1 || return 1
+    # A bad bench.json makes the game fall back to a normal run: never let that pass.
+    if grep -q "bench.json INVALID" "build/perf/$s.log" || ! grep -q "bench.json loaded" "build/perf/$s.log"; then
+        echo "scenario '$s': bench.json was not loaded by the game" >> "build/perf/$s.log"
+        return 1
+    fi
 }
 
 pids=()

@@ -1,6 +1,6 @@
 #include "pd_files.h"
 
-char* pd_read_file(PlaydateAPI* pd, const char* path, int* len_out) {
+char* pd_read_file(PlaydateAPI* pd, const char* path, int* len_out, int max_len) {
     FileStat st;
     SDFile* f;
     char* buf;
@@ -8,6 +8,10 @@ char* pd_read_file(PlaydateAPI* pd, const char* path, int* len_out) {
 
     if (len_out) *len_out = 0;
     if (pd->file->stat(path, &st) != 0 || st.size < 0) return NULL;
+    if (st.size > max_len) {
+        pd->system->logToConsole("pd_read_file: %s too large (%d > %d)", path, (int)st.size, max_len);
+        return NULL;
+    }
     f = pd->file->open(path, kFileRead | kFileReadData);
     if (!f) return NULL;
     buf = pd->system->realloc(NULL, (size_t)st.size + 1);
