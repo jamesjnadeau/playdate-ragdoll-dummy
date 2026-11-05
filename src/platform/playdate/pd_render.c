@@ -13,9 +13,11 @@ static LCDBitmap** g_images = NULL;
 static int g_image_count = 0;
 
 static void rot_cache_clear(void);
+static short g_dim[IMG_COUNT];   /* max source dimension per image, for the off-screen cull; reset with the image table */
 
 void pd_render_set_images(LCDBitmap** images, int count) {
     rot_cache_clear();
+    memset(g_dim, 0, sizeof g_dim);
     g_images = images;
     g_image_count = images ? count : 0;
 }
@@ -60,9 +62,11 @@ static int iround(float v) {
 #define ROT_BUDGET_BYTES (1536 * 1024)   /* the cache never holds more than this (1-bit data + mask) */
 #define ROT_CACHE 384
 #define ROT_HASH 512
+#define ROT_MAKE_PER_FRAME 128           /* new cache images per frame; lower values measured worse (see report): misses cost the same as direct draws */
+#define ROT_BACKOFF_FRAMES 30            /* no new cache images for this long after an allocation failure */
 #define ROT_BUCKETS_PER_OCTAVE 2
 #define ROT_BUCKET_MIN (-5 * ROT_BUCKETS_PER_OCTAVE)   /* scale 1/32 */
-#define ROT_BUCKET_MAX (3 * ROT_BUCKETS_PER_OCTAVE)    /* scale 8 */
+#define ROT_BUCKET_MAX (5 * ROT_BUCKETS_PER_OCTAVE)    /* scale 32; ROT_MAX_PX limits what is really cached */
 #define ROT_NB (ROT_BUCKET_MAX - ROT_BUCKET_MIN + 1)
 #define DEG_PER_STEP (360.0f / (float)ROT_STEPS)
 #define DEG_TO_RAD 0.017453292f
@@ -83,6 +87,7 @@ static float g_bthresh[ROT_NB];      /* scale above which a value falls in the n
 static int g_lru_head = -1, g_lru_tail = -1, g_free = -1;
 static int g_rot_bytes = 0;
 static PlaydateAPI* g_pd = NULL;
+static int g_made = 0, g_backoff = 0;
 
 static unsigned rot_hash(int image, int astep, int bx, int by) {
     return ((unsigned)image * 2654435761u + (unsigned)astep * 40503u + (unsigned)(bx - ROT_BUCKET_MIN) * 977u +
@@ -137,7 +142,9 @@ static void rot_cache_clear(void) {
 }
 
 /* Bucket index (0..ROT_NB-1) of scale s: binary search over the thresholds. */
+/* Bucket index (0..ROT_NB-1) of scale s, or -1 outside the cacheable range [1/32, 8]. */
 static int scale_bucket(float s) {
+    if (s < g_bscale[0] * 0.8f || s > g_bscale[ROT_NB - 1] * 1.25f) return -1;
     int lo = 0, hi = ROT_NB - 1;
     while (lo < hi) {
         int mid = (lo + hi) / 2;
@@ -160,14 +167,19 @@ static void draw_direct(PlaydateAPI* pd, const RenderCmd* c, LCDBitmap* src) {
 
 /* Makes the entry for (image, astep, bx, by); returns its index or -1 (draw directly instead). */
 static int rot_make(PlaydateAPI* pd, LCDBitmap* src, int image, int astep, int bx, int by) {
-    int w = 0, h = 0, rw = 0, rh = 0, sz = 0, i, idx = -1;
+    int w = 0, h = 0, rw = 0, rh = 0, sz = 0, est, i, idx = -1;
     float qa = (float)astep * DEG_PER_STEP;
     LCDBitmap* bmp;
     RotEntry* e;
+    if (g_made >= ROT_MAKE_PER_FRAME || g_backoff > 0) return -1;
     pd->graphics->getBitmapData(src, &w, &h, NULL, NULL, NULL);
     if ((float)(w > h ? w : h) * (g_bscale[bx > by ? bx : by]) * 1.42f > (float)ROT_MAX_PX) return -1;
+    /* Make room first: the new image is about (w*sx) * (h*sy) * 1.42^2 px at 2 bits per px (data + mask). */
+    est = (int)((float)w * g_bscale[bx] * (float)h * g_bscale[by] * 2.0f * 0.25f) + 64;
+    while (g_lru_tail >= 0 && (g_free < 0 || g_rot_bytes + est > ROT_BUDGET_BYTES)) rot_free(g_lru_tail);
     bmp = pd->graphics->rotatedBitmap(src, qa, g_bscale[bx], g_bscale[by], &sz);
-    if (!bmp) return -1;
+    if (!bmp) { g_backoff = ROT_BACKOFF_FRAMES; return -1; }
+    g_made++;
     /* Over the byte budget, or no free slot: free the least recently used. */
     while (g_lru_tail >= 0 && (g_free < 0 || g_rot_bytes + sz > ROT_BUDGET_BYTES)) rot_free(g_lru_tail);
     idx = g_free;
@@ -187,15 +199,14 @@ static int rot_make(PlaydateAPI* pd, LCDBitmap* src, int image, int astep, int b
 
 /* True when the image, wherever it is rotated, cannot reach the screen. Source sizes are fetched once. */
 static bool cull_offscreen(PlaydateAPI* pd, const RenderCmd* c, LCDBitmap* src) {
-    static short dim[IMG_COUNT];
     float r;
     if (c->image < 0 || c->image >= IMG_COUNT) return false;
-    if (dim[c->image] == 0) {
+    if (g_dim[c->image] == 0) {
         int w = 0, h = 0;
         pd->graphics->getBitmapData(src, &w, &h, NULL, NULL, NULL);
-        dim[c->image] = (short)(w > h ? w : h);
+        g_dim[c->image] = (short)(w > h ? w : h);
     }
-    r = (float)dim[c->image] * (c->sx > c->sy ? c->sx : c->sy) * 1.42f;   /* reach of any pivot-relative corner */
+    r = (float)g_dim[c->image] * (c->sx > c->sy ? c->sx : c->sy) * 1.42f;   /* reach of any pivot-relative corner */
     return c->x + r < 0.0f || c->x - r > 400.0f || c->y + r < 0.0f || c->y - r > 240.0f;
 }
 
@@ -210,6 +221,7 @@ static void exec_cached(PlaydateAPI* pd, const RenderCmd* c, LCDBitmap* src) {
     astep = iround(a * (1.0f / DEG_PER_STEP)) % ROT_STEPS;
     bx = scale_bucket(c->sx);
     by = scale_bucket(c->sy);
+    if (bx < 0 || by < 0) { draw_direct(pd, c, src); return; }
     for (idx = g_head[rot_hash(c->image, astep, bx, by)]; idx >= 0; idx = g_rot[idx].next) {
         const RotEntry* t = &g_rot[idx];
         if (t->image == c->image && t->astep == astep && t->bx == bx && t->by == by) break;
@@ -241,6 +253,8 @@ static void exec_bitmap(PlaydateAPI* pd, const RenderCmd* c) {
 void pd_render_execute(PlaydateAPI* pd, const RenderList* rl) {
     const struct playdate_graphics* gfx = pd->graphics;
     g_pd = pd;
+    g_made = 0;
+    if (g_backoff > 0) g_backoff--;
     if (!g_pat_ready) init_patterns();
     pd->display->setInverted(rl->invert ? 1 : 0);
     gfx->clear(kColorWhite);
