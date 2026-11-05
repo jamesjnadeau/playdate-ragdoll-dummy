@@ -344,44 +344,68 @@ static int prewarm_one(PlaydateAPI* pd, int image, int astep, int b, int touch, 
 }
 #endif
 
+#if ROT_PREWARM
+#define PW_IDX(n, total, rev) ((rev) ? (total) - 1 - (n) : (n))
+static const int k_pw_buckets[] = { 10, 9, 11, 8, 12, 13 };   /* scale 1, 0.7, 1.4, 0.5, 2, 2.8, likeliest first */
+static const int k_pw_limbs[] = { PART_ARM_UPPER, PART_ARM_LOWER, PART_FIST };
+static const int k_pw_body[] = { PART_BASE, PART_BODY, PART_HEAD, PART_FACE_MEAN, PART_FACE_KO, PART_FACE_SQUISH };
+static const int k_pw_small_steps[] = { 0, 31, 1, 30, 2, 29, 3 };
+#define PW_N(a) ((int)(sizeof(a) / sizeof((a)[0])))
+
+/* Each group walks its list in priority order (rev == 0) or in exactly the opposite order (rev == 1). */
+static int pw_scraps(PlaydateAPI* pd, int rev, int* count) {   /* tiny, and a burst needs every variant and angle at once */
+    for (int n = 0; n < 7; n++)
+        for (int an = 0; an < ROT_STEPS; an++)
+            for (int vn = 0; vn < STUFF_SCRAP_VARIANTS; vn++)
+                if (!prewarm_one(pd, IMG_SCRAP0 + PW_IDX(vn, STUFF_SCRAP_VARIANTS, rev), PW_IDX(an, ROT_STEPS, rev),
+                                 6 + PW_IDX(n, 7, rev), rev, count)) return 0;
+    return 1;
+}
+
+static int pw_buckets(PlaydateAPI* pd, int rev, int* count) {
+    for (int n = 0; n < PW_N(k_pw_buckets); n++) {
+        int b = k_pw_buckets[PW_IDX(n, PW_N(k_pw_buckets), rev)];
+        if (rev) {   /* the body group was made after the limbs, so it is touched before them */
+            for (int an = 0; an < PW_N(k_pw_small_steps); an++)
+                for (int sn = 0; sn < DS_COUNT; sn++)
+                    for (int pn = 0; pn < PW_N(k_pw_body); pn++)
+                        if (!prewarm_one(pd, img_dummy((DummySize)PW_IDX(sn, DS_COUNT, 1), (DummyPart)k_pw_body[PW_IDX(pn, PW_N(k_pw_body), 1)]),
+                                         k_pw_small_steps[PW_IDX(an, PW_N(k_pw_small_steps), 1)], b, 1, count)) return 0;
+        }
+        for (int an = 0; an < ROT_STEPS; an++)
+            for (int sn = 0; sn < DS_COUNT; sn++)
+                for (int pn = 0; pn < PW_N(k_pw_limbs); pn++)
+                    if (!prewarm_one(pd, img_dummy((DummySize)PW_IDX(sn, DS_COUNT, rev), (DummyPart)k_pw_limbs[PW_IDX(pn, PW_N(k_pw_limbs), rev)]),
+                                     PW_IDX(an, ROT_STEPS, rev), b, rev, count)) return 0;
+        if (!rev) {
+            for (int an = 0; an < PW_N(k_pw_small_steps); an++)
+                for (int sn = 0; sn < DS_COUNT; sn++)
+                    for (int pn = 0; pn < PW_N(k_pw_body); pn++)
+                        if (!prewarm_one(pd, img_dummy((DummySize)sn, (DummyPart)k_pw_body[pn]), k_pw_small_steps[an], b, 0, count)) return 0;
+        }
+    }
+    return 1;
+}
+
+static int pw_weapons(PlaydateAPI* pd, int rev, int* count) {
+    for (int an = 0; an < ROT_STEPS; an++)
+        for (int wn = 0; wn < WEAPON_COUNT; wn++)
+            if (!prewarm_one(pd, IMG_WEAPON_HELD0 + PW_IDX(wn, WEAPON_COUNT, rev), PW_IDX(an, ROT_STEPS, rev), 10, rev, count)) return 0;
+    return 1;
+}
+#endif
+
 void pd_render_prewarm(PlaydateAPI* pd) {
 #if ROT_PREWARM
-    static const int k_buckets[] = { 10, 9, 11, 8, 12, 13 };   /* scale 1, 0.7, 1.4, 0.5, 2, 2.8, likeliest first */
-    static const int k_limbs[] = { PART_ARM_UPPER, PART_ARM_LOWER, PART_FIST };
-    static const int k_body[] = { PART_BASE, PART_BODY, PART_HEAD, PART_FACE_MEAN, PART_FACE_KO, PART_FACE_SQUISH };
-    static const int k_small_steps[] = { 0, 31, 1, 30, 2, 29, 3 };
     unsigned t0 = pd->system->getCurrentTimeMilliseconds();
-    int count = 0, bytes0 = g_rot_bytes, ok = 1;
+    int count = 0, bytes0 = g_rot_bytes;
     g_pd = pd;
     if (!g_images) return;
-    /* Pass 0 makes entries in priority order until the budget is spent. Pass 1 re-touches them in the opposite
-       order, so the likeliest ones end up most recently used and are evicted last. */
-    for (int pass = 0; pass < 2; pass++) {
-        if (pass == 1 && count == 0) break;
-        ok = 1;
-        /* scraps: tiny, and a burst needs all four variants at every angle at once */
-        for (int b = 6; b <= 12 && ok; b++)
-            for (int a = 0; a < ROT_STEPS && ok; a++)
-                for (int v = 0; v < STUFF_SCRAP_VARIANTS && ok; v++)
-                    ok = prewarm_one(pd, IMG_SCRAP0 + v, a, b, pass, &count);
-        if (pass == 1)
-            for (int a = 0; a < ROT_STEPS; a++)
-                for (int w = 0; w < WEAPON_COUNT; w++) prewarm_one(pd, IMG_WEAPON_HELD0 + w, a, 10, 1, &count);
-        for (int n = 0; n < (int)(sizeof(k_buckets) / sizeof(k_buckets[0])) && ok; n++) {
-            int b = k_buckets[pass ? (int)(sizeof(k_buckets) / sizeof(k_buckets[0])) - 1 - n : n];
-            for (int a = 0; a < ROT_STEPS && ok; a++)
-                for (int s = 0; s < DS_COUNT && ok; s++)
-                    for (unsigned p = 0; p < sizeof(k_limbs) / sizeof(k_limbs[0]) && ok; p++)
-                        ok = prewarm_one(pd, img_dummy((DummySize)s, (DummyPart)k_limbs[p]), a, b, pass, &count);
-            for (unsigned a = 0; a < sizeof(k_small_steps) / sizeof(k_small_steps[0]) && ok; a++)
-                for (int s = 0; s < DS_COUNT && ok; s++)
-                    for (unsigned p = 0; p < sizeof(k_body) / sizeof(k_body[0]) && ok; p++)
-                        ok = prewarm_one(pd, img_dummy((DummySize)s, (DummyPart)k_body[p]), k_small_steps[a], b, pass, &count);
-        }
-        if (pass == 0)
-            for (int a = 0; a < ROT_STEPS && ok; a++)
-                for (int w = 0; w < WEAPON_COUNT && ok; w++) ok = prewarm_one(pd, IMG_WEAPON_HELD0 + w, a, 10, 0, &count);
-    }
+    /* Pass 0 makes entries in priority order (scraps, then the scale buckets likeliest first, then weapons) until
+       the budget is spent. Pass 1 touches the same entries in exactly the reverse order (weapons, buckets
+       unlikeliest first, scraps last), so the highest-priority entries are the most recently used and are evicted last. */
+    if (pw_scraps(pd, 0, &count) && pw_buckets(pd, 0, &count)) pw_weapons(pd, 0, &count);
+    if (count > 0) { pw_weapons(pd, 1, &count); pw_buckets(pd, 1, &count); pw_scraps(pd, 1, &count); }
     pd->system->logToConsole("rotation cache pre-warmed: %d images, %d KB, %u ms", count, (g_rot_bytes - bytes0) / 1024,
                              pd->system->getCurrentTimeMilliseconds() - t0);
 #else
