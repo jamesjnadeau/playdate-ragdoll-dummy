@@ -11,14 +11,14 @@ void suite_camera(void) {
     w.x = 0.0f; w.y = CAM_Y; w.z = 1.5f;
     CHECK(camera_project(&c, w, &sx, &sy, &ppm));
     CHECK_NEAR(sx, 200.0f, 1e-3f);
-    CHECK_NEAR(sy, 108.0f, 1e-3f);
+    CHECK_NEAR(sy, HORIZON_Y, 1e-3f);
     CHECK_NEAR(ppm, 100.0f, 1e-3f);
 
-    /* Floor point at the right wall, dz = 3: sx = 280, sy = 175.5. */
+    /* Floor point at the right wall, dz = 3: sx = 280, sy = HORIZON_Y + 67.5 (CAM_Y * FOCAL / 3). */
     w.x = HALL_HALF_W; w.y = 0.0f; w.z = 3.0f;
     CHECK(camera_project(&c, w, &sx, &sy, &ppm));
     CHECK_NEAR(sx, 280.0f, 1e-3f);
-    CHECK_NEAR(sy, 175.5f, 1e-3f);
+    CHECK_NEAR(sy, HORIZON_Y + 67.5f, 1e-3f);
 
     /* Closer than NEAR_Z relative to the player is rejected. */
     c.player_z = 0.0f;

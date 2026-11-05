@@ -9,7 +9,7 @@
 #define SCREEN_H 240.0f
 #define FOCAL 150.0f
 #define SCREEN_CX 200.0f
-#define HORIZON_Y 108.0f
+#define HORIZON_Y 72.0f
 #define AIM_PITCH_LOW_PX (-40.0f)   /* horizon moves up when looking down */
 #define AIM_PITCH_HIGH_PX 40.0f
 #define AIM_EASE_PX_PER_FRAME 8.0f

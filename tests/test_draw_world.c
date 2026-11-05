@@ -31,7 +31,7 @@ static void test_hallway_emits_geometry(void) {
         const RenderCmd* c = &g_rl.cmd[i];
         if (c->type == RC_RECT && c->pattern == PAT_BLACK) {
             float cx = c->x + c->sx * 0.5f, cy = c->y + c->sy * 0.5f;
-            if (fabsf(cx - 200.0f) <= 2.0f && fabsf(cy - 108.0f) <= 2.0f) found = 1;
+            if (fabsf(cx - 200.0f) <= 2.0f && fabsf(cy - HORIZON_Y) <= 2.0f) found = 1;
         }
     }
     CHECK(found);
@@ -47,7 +47,7 @@ static void test_hallway_scrolls(void) {
     rl_clear(&g_rl);
     draw_hallway(&g_rl, &cam);
     y1 = nearest_cross_y(&g_rl);
-    CHECK(y0 > 108.0f);
+    CHECK(y0 > HORIZON_Y);
     CHECK(y0 != y1);
 }
 
