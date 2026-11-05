@@ -314,6 +314,12 @@ fighting happens in front of you.
   open door, and never past a door the player has closed. Both values are
   configurable in `src/core/tuning.h`.
 
+**Decided (during build, for frame rate):** late-game difficulty comes from
+tougher dummies rather than more of them on screen. Dummy health grows with
+distance (`DUMMY_HP_PER_100M`, +25% per 100 m), and at most
+`MAX_LIVE_DUMMIES` (10) are alive at once; doors hold their next dummy until
+a slot frees. Both are configurable in `src/core/tuning.h`.
+
 ### 6.8 Hallway
 
 Fixed look, not skinnable. A straight corridor with doors on both walls,
