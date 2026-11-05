@@ -65,6 +65,15 @@
 #define RAGDOLL_BOWL_DMG 0.4f        /* hp per m/s */
 #define RAGDOLL_DOORSLAM_DMG 1.0f
 #define RAGDOLL_REST_FRAMES 90       /* settled ragdoll fades after this */
+#define RAGDOLL_MAX 6
+#define RAGDOLL_SETTLE_SPEED 0.2f    /* m/s; every point slower than this counts as still */
+#define RAGDOLL_BOUNCE_MIN 0.7f      /* m/s; slower contacts do not bounce, so a ragdoll can lie still */
+#define RAGDOLL_HEAD_VEL 1.1f        /* launch velocity multipliers, for floppiness */
+#define RAGDOLL_FIST_VEL 1.2f
+#define RAGDOLL_LEAN 0.05f           /* spawn pose leans this much (m per m of height) so it topples */
+#define RAGDOLL_BOWL_PUSH 0.3f       /* m a bowled dummy is shoved along the ragdoll's velocity */
+#define RAGDOLL_BOWL_COOLDOWN 10     /* frames before the same ragdoll-dummy pair can hit again */
+#define RAGDOLL_BOWL_LAUNCH 0.6f     /* a bowled-out dummy flies at this fraction of the hitting speed */
 #define PARTICLE_LIFE_FRAMES 150
 #define BURST_PUFFS 26
 #define BURST_SCRAPS 9

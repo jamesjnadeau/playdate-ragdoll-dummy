@@ -7,11 +7,11 @@ void suite_render_list(void) {
     float xy[8] = {0.0f, 0.0f, 10.0f, 0.0f, 10.0f, 10.0f, 0.0f, 10.0f};
     int i;
 
-    /* A full list keeps 512 commands and counts the 88 it dropped. */
+    /* A full list keeps 1024 commands and counts the 76 it dropped. */
     rl_clear(&rl);
-    for (i = 0; i < 600; i++) rl_line(&rl, 0.0f, 0.0f, 1.0f, 1.0f, 2, PAT_BLACK);
-    CHECK_EQ_INT(rl.n, 512);
-    CHECK_EQ_INT(rl.dropped, 88);
+    for (i = 0; i < 1100; i++) rl_line(&rl, 0.0f, 0.0f, 1.0f, 1.0f, 2, PAT_BLACK);
+    CHECK_EQ_INT(rl.n, 1024);
+    CHECK_EQ_INT(rl.dropped, 76);
 
     /* Clearing resets count, text and drop counter. */
     rl_clear(&rl);

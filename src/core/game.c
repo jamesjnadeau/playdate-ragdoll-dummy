@@ -29,6 +29,11 @@ void game_start_bench(Game* g, const BenchConfig* cfg) {
     g->player.z = cfg->distance;
     g->cam.player_z = cfg->distance;
     camera_update(&g->cam);
+    if (cfg->scene == BENCH_RAGDOLL) {   /* one dummy flung at the right wall, for screenshots */
+        int d = dummy_spawn(&g->dummies, DS_MEDIUM, -0.5f, cfg->distance + 1.8f, -1);
+        g->dummies.d[d].state = DST_RAGDOLL;
+        g->dummies.d[d].launch = (Vec3){ 4.2f, 2.5f, 0.3f };
+    }
 }
 
 /* Ticks open doors and spawns their dummies one by one. */
@@ -118,17 +123,30 @@ void game_update(Game* g, const GameInput* in) {
                                       g->hits, (int)(sizeof(g->hits) / sizeof(g->hits[0])));
     }
     spawn_impacts(g);
+
+    /* Knocked-out dummies become ragdolls, then every ragdoll steps once. */
+    for (i = 0; i < MAX_DUMMIES; i++) {
+        Dummy* d = &g->dummies.d[i];
+        if (d->alive && d->state == DST_RAGDOLL && d->ragdoll < 0)
+            ragdoll_spawn(&g->ragdolls, &g->dummies, i, &g->rigs[d->size], d->launch);
+    }
+    {
+        RagdollStepOut ro;
+        ragdoll_step(&g->ragdolls, &g->dummies, &g->hall, g->rigs, &ro);
+        g->nbursts = ro.burst_count;
+        for (i = 0; i < ro.burst_count; i++) g->bursts[i] = ro.burst_at[i];
+    }
 }
 
 void game_render(Game* g) {
     int i;
     rl_clear(&g->rl);
-    draw_world(&g->rl, &g->cam, &g->hall, &g->dummies, g->rigs, g->frame);
+    draw_world(&g->rl, &g->cam, &g->hall, &g->dummies, g->rigs, &g->ragdolls, g->frame);
     if (g->hurt_t > 0) {
         /* Fixed pattern, so renders are deterministic. Only the world shakes. */
-        static const int8_t shake[HURT_SHAKE_FRAMES][2] = { {3, -2}, {-3, 3}, {2, 2}, {-2, -3}, {3, 1}, {-1, 2} };
-        const int8_t* o = shake[HURT_SHAKE_FRAMES - g->hurt_t];
-        rl_offset(&g->rl, 0, o[0], o[1]);
+        static const int8_t pattern[HURT_SHAKE_FRAMES][2] = { {1, -1}, {-1, 1}, {1, 1}, {-1, -1}, {1, 0}, {0, 1} };
+        const int8_t* o = pattern[HURT_SHAKE_FRAMES - g->hurt_t];
+        rl_offset(&g->rl, 0, o[0] * HURT_SHAKE_PX, o[1] * HURT_SHAKE_PX);
         g->rl.invert = g->hurt_t == HURT_SHAKE_FRAMES;
     }
     for (i = 0; i < MAX_IMPACTS; i++)

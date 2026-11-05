@@ -17,6 +17,7 @@ void suite_player(void);
 void suite_swing(void);
 void suite_combat(void);
 void suite_pose(void);
+void suite_ragdoll(void);
 
 int main(void) {
     RUN(smoke);
@@ -34,6 +35,7 @@ int main(void) {
     RUN(swing);
     RUN(combat);
     RUN(pose);
+    RUN(ragdoll);
     if (g_failures > 0) {
         printf("%d check(s) failed\n", g_failures);
         return 1;

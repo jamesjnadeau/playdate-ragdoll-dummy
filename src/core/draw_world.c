@@ -8,26 +8,41 @@ static bool drawable(const Dummy* d) {
 }
 
 void draw_world(RenderList* rl, const Camera* cam, const Hallway* hall,
-                const DummyPool* dummies, const DummyRig rigs[DS_COUNT], int frame) {
-    int order[MAX_DUMMIES];
+                const DummyPool* dummies, const DummyRig rigs[DS_COUNT],
+                const RagdollPool* ragdolls, int frame) {
+    /* Dummies are items 0..MAX_DUMMIES-1, ragdolls MAX_DUMMIES.. ; sorted together, farthest first. */
+    int order[MAX_DUMMIES + RAGDOLL_MAX];
+    float key[MAX_DUMMIES + RAGDOLL_MAX];
     int n = 0, i, j;
 
     draw_hallway(rl, cam);
     for (i = hall->ndoors - 1; i >= 0; i--) draw_door(rl, cam, &hall->doors[i]);
 
-    for (i = 0; i < MAX_DUMMIES; i++) {
-        if (!drawable(&dummies->d[i])) continue;
-        /* insertion sort, farthest first */
-        for (j = n; j > 0 && dummies->d[order[j - 1]].z < dummies->d[i].z; j--) order[j] = order[j - 1];
+    for (i = 0; i < MAX_DUMMIES + RAGDOLL_MAX; i++) {
+        float z;
+        if (i < MAX_DUMMIES) {
+            if (!drawable(&dummies->d[i])) continue;
+            z = dummies->d[i].z;
+        } else {
+            if (!ragdolls || !ragdolls->r[i - MAX_DUMMIES].active) continue;
+            z = ragdolls->r[i - MAX_DUMMIES].p[RP_BODY_LO].z;
+        }
+        key[i] = z;
+        for (j = n; j > 0 && key[order[j - 1]] < z; j--) order[j] = order[j - 1];
         order[j] = i;
         n++;
     }
     for (i = 0; i < n; i++) {
-        const Dummy* d = &dummies->d[order[i]];
-        DummyPose pose;
-        if (d->reaction_t > 0) pose_for_reaction((ReactionType)d->reaction, (float)d->reaction_t / (float)REACTION_FRAMES, d, frame, &pose);
-        else pose_for_state(d, frame, &pose);
-        draw_dummy(rl, cam, d, &rigs[d->size], &pose);
+        if (order[i] >= MAX_DUMMIES) {
+            const Ragdoll* r = &ragdolls->r[order[i] - MAX_DUMMIES];
+            draw_ragdoll(rl, cam, r, &rigs[r->size]);
+        } else {
+            const Dummy* d = &dummies->d[order[i]];
+            DummyPose pose;
+            if (d->reaction_t > 0) pose_for_reaction((ReactionType)d->reaction, (float)d->reaction_t / (float)REACTION_FRAMES, d, frame, &pose);
+            else pose_for_state(d, frame, &pose);
+            draw_dummy(rl, cam, d, &rigs[d->size], &pose);
+        }
     }
 }
 

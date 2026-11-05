@@ -102,7 +102,7 @@ static void test_dummies_sorted_far_to_near(void) {
     dummy_spawn(&dp, DS_LARGE, -0.3f, 6.0f, -1);   /* far */
     dp.d[0].state = DST_WALK; dp.d[1].state = DST_WALK;
     rl_clear(&g_rl);
-    draw_world(&g_rl, &cam, &h, &dp, g_rigs, 0);
+    draw_world(&g_rl, &cam, &h, &dp, g_rigs, NULL, 0);
     for (int i = 0; i < g_rl.n && first_body < 0; i++) {
         int im = g_rl.cmd[i].image;
         if (g_rl.cmd[i].type != RC_BITMAP) continue;
@@ -186,9 +186,9 @@ static void test_worst_case_no_drops(void) {
         dp.d[i].state = DST_WINDUP;
     }
     rl_clear(&g_rl);
-    draw_world(&g_rl, &cam, &h, &dp, g_rigs, 5);
+    draw_world(&g_rl, &cam, &h, &dp, g_rigs, NULL, 5);
     CHECK_EQ_INT(g_rl.dropped, 0);
-    CHECK(g_rl.n < 512);
+    CHECK(g_rl.n < 1024);
 }
 
 static void test_hallway_clips_near(void) {

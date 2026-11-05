@@ -1,7 +1,7 @@
 #include <string.h>
 #include "render_list.h"
 
-#define RL_MAX_CMDS 512
+#define RL_MAX_CMDS 1024
 #define RL_TEXT_BYTES 1024
 #define RL_MAX_POLY_PTS 4
 #define RL_COORD_LIMIT 30000.0f

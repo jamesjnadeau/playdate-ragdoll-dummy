@@ -13,6 +13,7 @@
 #include "rig.h"
 #include "swing.h"
 #include "combat.h"
+#include "ragdoll.h"
 #include "tuning.h"
 
 typedef struct { float x, y, r; int t; } Impact;   /* screen star, t = frames left */
@@ -34,6 +35,9 @@ typedef struct Game {
     int nhits;
     WeaponRig wrigs[WEAPON_COUNT];   /* grip/tip and image size of each held weapon */
     Impact impacts[MAX_IMPACTS];
+    RagdollPool ragdolls;
+    Vec3 bursts[6];       /* where ragdolls burst this frame, for particles (Task 14) */
+    int nbursts;
     int hurt_t;           /* frames of hurt shake left; the frame it starts on also inverts */
 } Game;
 

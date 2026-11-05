@@ -25,6 +25,8 @@ void suite_bench(void) {
     CHECK_EQ_INT(c.scene, BENCH_BURST_STORM);
     CHECK(parse("{\"scene\":\"skins\"}", &c));
     CHECK_EQ_INT(c.scene, BENCH_SKINS);
+    CHECK(parse("{\"scene\":\"ragdoll\"}", &c));
+    CHECK_EQ_INT(c.scene, BENCH_RAGDOLL);
 
     CHECK(!parse("{\"scene\":\"nope\"}", &c));
     CHECK(!parse("{not json", &c));

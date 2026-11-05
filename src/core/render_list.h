@@ -26,7 +26,7 @@ typedef struct {
 } RenderCmd;
 
 typedef struct {
-    RenderCmd cmd[512];
+    RenderCmd cmd[1024];
     int n;
     char text[1024];
     int text_n;
