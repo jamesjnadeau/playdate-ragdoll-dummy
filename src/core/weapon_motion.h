@@ -16,6 +16,9 @@ typedef struct {
     bool attached;
     bool swept;                /* this frame's prev_angle -> angle move was a spring step and may hit */
     uint16_t inside;           /* bit i: the weapon overlaps dummy i (owned by contact.c) */
+    uint16_t struck;           /* bit i: dummy i was hit this pass and counts as inside (owned by contact.c) */
+    float struck_dir;          /* sign of the move that struck them (owned by contact.c) */
+    float struck_travel;       /* degrees turned since the last strike (owned by contact.c) */
 } Weapon;                      /* all-zero is a valid docked, centred weapon */
 
 float weapon_wrap_deg(float a);                 /* to (-180, 180] */

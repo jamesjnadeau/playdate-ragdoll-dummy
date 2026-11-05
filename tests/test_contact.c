@@ -291,27 +291,85 @@ static void test_bounce_in_head_scene_scores_body(void) {
                0.001f);
 }
 
+/* Normal HP: a sledge at normal speed takes a medium dummy (3 HP) in two hits (spec decision 10), so it
+   survives the first and stays a target even though the push-back shrinks its boxes off the weapon. */
 static void test_one_hit_per_pass(void) {
     DummyPool p; Weapon wp; HitResult h[4]; float a;
     int total = 0;
-    Camera cam = mk_cam(PITCH_HIGH);
-    scene1(&p, &wp, &cam, W_SLEDGE, DS_SMALL, DZ_HIGH, 30.0f, &a);
-    p.d[0].hp = 50.0f;               /* survives every hit, so it stays a target */
-    set_sweep(&wp, a - 30.0f, a, 30.0f);
+    Camera cam = mk_cam(PITCH_MID);
+    scene1(&p, &wp, &cam, W_SLEDGE, DS_MEDIUM, DZ_MID, 20.0f, &a);
+    set_sweep(&wp, a - 30.0f, a, 20.0f);
     total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
     CHECK_EQ_INT(total, 1);
+    CHECK(!h[0].knockout);
     CHECK(wp.attached);
     CHECK(p.d[0].z - cam.player_z <= weapon_def(W_SLEDGE)->reach);   /* pushed back, still in reach */
-    CHECK(wp.inside & 1u);           /* and still under the weapon */
-    set_sweep(&wp, a, a + 3.0f, 30.0f);
+    CHECK(wp.inside & 1u);           /* still counted as under the weapon */
+    set_sweep(&wp, a, a + 3.0f, 20.0f);
     total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
     CHECK_EQ_INT(total, 1);
     /* Leave every box, then come back. */
-    set_sweep(&wp, a + 3.0f, a + 40.0f, 30.0f);
+    set_sweep(&wp, a + 3.0f, a + 40.0f, 20.0f);
     total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
     CHECK_EQ_INT(total, 1);
     CHECK(!(wp.inside & 1u));
-    set_sweep(&wp, a + 40.0f, a - 10.0f, -30.0f);
+    set_sweep(&wp, a + 40.0f, a - 10.0f, -20.0f);
+    total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
+    CHECK_EQ_INT(total, 2);
+    CHECK(h[0].knockout);            /* the second hit of the second pass */
+}
+
+/* A whole crank-driven stroke (the spring, the slow-down on penetration, the push-back and reaction pose):
+   a sledge at normal speed hits a medium dummy once, and it survives. */
+static void test_full_stroke_hits_once(void) {
+    DummyPool p; Weapon wp; HitResult h[4]; GameInput in; float a;
+    int f, total = 0;
+    const WeaponDef* w = weapon_def(W_SLEDGE);
+    Camera cam = mk_cam(PITCH_MID);
+    scene1(&p, &wp, &cam, W_SLEDGE, DS_MEDIUM, DZ_MID, 20.0f, &a);
+    memset(&wp, 0, sizeof wp);
+    memset(&in, 0, sizeof in);
+    in.crank_angle = a - 60.0f + CRANK_ZERO_DEG;
+    weapon_update(&wp, &in, w);
+    total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
+    in.crank_delta = 20.0f;
+    for (f = 0; f < 20; f++) {
+        if (f == 8) in.crank_delta = 0.0f;
+        in.crank_angle += in.crank_delta;
+        weapon_update(&wp, &in, w);
+        total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
+    }
+    CHECK(wp.angle > a + 60.0f);   /* the stroke carried on well past the dummy */
+    CHECK_EQ_INT(total, 1);
+    CHECK(p.d[0].hp > 0.0f);
+    CHECK(p.d[0].state != DST_RAGDOLL);
+}
+
+/* The struck dummy is let go by a return stroke, and by the next crank turn in the same direction. */
+static void test_struck_dummy_released_by_return_and_next_turn(void) {
+    DummyPool p; Weapon wp; HitResult h[4]; float a, x;
+    int total = 0;
+    Camera cam = mk_cam(PITCH_MID);
+    scene1(&p, &wp, &cam, W_SLEDGE, DS_MEDIUM, DZ_MID, 20.0f, &a);
+    set_sweep(&wp, a - 30.0f, a + 40.0f, 20.0f);
+    total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
+    CHECK_EQ_INT(total, 1);
+    CHECK(wp.inside & 1u);           /* struck: counts as inside though the weapon is past it */
+    set_sweep(&wp, a + 40.0f, a - 30.0f, -20.0f);
+    total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
+    CHECK_EQ_INT(total, 2);          /* the return stroke is a new pass */
+    CHECK(h[0].knockout);
+
+    scene1(&p, &wp, &cam, W_SLEDGE, DS_MEDIUM, DZ_MID, 20.0f, &a);
+    set_sweep(&wp, a - 30.0f, a + 40.0f, 20.0f);
+    total = sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
+    for (x = a + 40.0f; x < a + 320.0f; x += 20.0f) {
+        set_sweep(&wp, x, x + 20.0f, 20.0f);
+        total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
+    }
+    CHECK_EQ_INT(total, 1);
+    CHECK(!(wp.inside & 1u));
+    set_sweep(&wp, a + 320.0f, a + 370.0f, 20.0f);   /* round again to the dummy */
     total += sweep(&wp, W_SLEDGE, &cam, &p, h, 4);
     CHECK_EQ_INT(total, 2);
 }
@@ -388,6 +446,8 @@ void suite_contact(void) {
     test_head_anywhere_in_pass();
     test_bounce_in_head_scene_scores_body();
     test_one_hit_per_pass();
+    test_full_stroke_hits_once();
+    test_struck_dummy_released_by_return_and_next_turn();
     test_still_weapon_never_hits();
     test_max_out_respected();
 }

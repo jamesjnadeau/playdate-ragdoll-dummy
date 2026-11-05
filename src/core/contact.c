@@ -7,6 +7,7 @@
 #define LAUNCH_SIDE 0.5f
 #define LAUNCH_UP_MIN 0.3f
 #define LAUNCH_FORWARD 0.9f
+#define STRUCK_RELEASE_DEG 180.0f   /* a struck dummy is let go after half a turn: the next pass is a new turn */
 
 /* Weapon.inside has one bit per pool slot. */
 typedef char contact_inside_fits_pool[(MAX_DUMMIES <= 16) ? 1 : -1];
@@ -134,6 +135,50 @@ static uint16_t inside_mask(const Weapon* wp, const WeaponRig* wr, const Candida
     return m;
 }
 
+/* True if the weapon overlaps c anywhere along the move from a0 to a1 (sampled as contact_sweep samples). */
+static bool move_overlaps(const Weapon* wp, const WeaponRig* wr, float a0, float a1, const Candidate* c) {
+    float da = a1 - a0;
+    int k, n = (int)ceilf(fabsf(da) / WEAPON_SWEEP_STEP_DEG);
+    for (k = 0; k <= n; k++)
+        if (overlap_any(wp, wr, n > 0 ? a0 + da * (float)k / (float)n : a0, c)) return true;
+    return false;
+}
+
+/* One hit per pass. A struck dummy is pushed back and switches to its reaction pose, so its boxes shrink and
+   can drop off the weapon, or move ahead of it, mid-stroke; neither is the weapon leaving it. So a struck dummy
+   counts as inside until the weapon reverses (a return stroke or a bounce), or moves out of its boxes, or has
+   turned half a circle since the strike (the next crank turn), or the dummy is no longer a target.
+   Runs before the entry search, so a return stroke can hit at once. */
+static void release_on_reverse(Weapon* wp, const WeaponRig* wr, const Candidate cand[MAX_DUMMIES], float da) {
+    int i;
+    bool reversed = da != 0.0f && (da > 0.0f) != (wp->struck_dir > 0.0f);
+    for (i = 0; i < MAX_DUMMIES; i++) {
+        uint16_t bit = (uint16_t)(1u << i);
+        if (!(wp->struck & bit)) continue;
+        if (!cand[i].ok || reversed) {
+            wp->struck = (uint16_t)(wp->struck & ~bit);
+            if (!cand[i].ok || !overlap_any(wp, wr, wp->prev_angle, &cand[i])) wp->inside = (uint16_t)(wp->inside & ~bit);
+        }
+    }
+}
+
+/* After the hits, for dummies struck on an earlier frame: released once this frame's move takes the weapon out
+   of their boxes, or the weapon has turned STRUCK_RELEASE_DEG since the strike. */
+static void release_on_exit(Weapon* wp, const WeaponRig* wr, const Candidate cand[MAX_DUMMIES], uint16_t keep) {
+    int i;
+    float da = wp->angle - wp->prev_angle;
+    if (!wp->struck) return;
+    wp->struck_travel += fabsf(da);
+    for (i = 0; i < MAX_DUMMIES; i++) {
+        uint16_t bit = (uint16_t)(1u << i);
+        if (!(wp->struck & bit) || (keep & bit)) continue;
+        if (!cand[i].ok || wp->struck_travel >= STRUCK_RELEASE_DEG ||
+            (da != 0.0f && move_overlaps(wp, wr, wp->prev_angle, wp->angle, &cand[i]) &&
+             !overlap_any(wp, wr, wp->angle, &cand[i])))
+            wp->struck = (uint16_t)(wp->struck & ~bit);
+    }
+}
+
 static void set_contact(const Weapon* wp, Contact* c, bool head, float x, float y) {
     float dx = x - weapon_pivot_x(wp), dy = y - WEAPON_PIVOT_Y;
     c->head = head;
@@ -208,10 +253,13 @@ int contact_sweep(Weapon* wp, const WeaponDef* w, const WeaponRig* wr, const Cam
     Entry ent[MAX_DUMMIES];
     float da = wp->angle - wp->prev_angle;
     int i, j, n, ne = 0, nh = 0;
+    uint16_t hit_now = 0;
 
     gather(w, cam, pool, rigs, frame, cand);
+    release_on_reverse(wp, wr, cand, da);
     if (!wp->swept || da == 0.0f) {
-        wp->inside = inside_mask(wp, wr, cand);
+        release_on_exit(wp, wr, cand, 0);
+        wp->inside = (uint16_t)(inside_mask(wp, wr, cand) | wp->struck);
         return 0;
     }
 
@@ -241,6 +289,7 @@ int contact_sweep(Weapon* wp, const WeaponDef* w, const WeaponRig* wr, const Cam
             m = contact_momentum(w, wp->vel, c->r);
         }
         apply_hit(w, d, e->dummy, c, a_k, wp->vel, m, h);
+        hit_now = (uint16_t)(hit_now | (1u << e->dummy));
         if (m >= R || h->knockout) {
             float keep = m > 0.0f ? 1.0f - R / m : 0.0f;
             wp->vel *= keep > 0.0f ? keep : 0.0f;
@@ -250,6 +299,13 @@ int contact_sweep(Weapon* wp, const WeaponDef* w, const WeaponRig* wr, const Cam
     }
 
     gather(w, cam, pool, rigs, frame, cand);
-    wp->inside = inside_mask(wp, wr, cand);
+    release_on_exit(wp, wr, cand, hit_now);
+    for (i = 0; i < MAX_DUMMIES; i++)   /* latch this frame's hits; a knockout is no longer a target */
+        if ((hit_now & (1u << i)) && cand[i].ok) wp->struck = (uint16_t)(wp->struck | (1u << i));
+    if (hit_now) {
+        wp->struck_dir = da > 0.0f ? 1.0f : -1.0f;
+        wp->struck_travel = 0.0f;
+    }
+    wp->inside = (uint16_t)(inside_mask(wp, wr, cand) | wp->struck);
     return nh;
 }
