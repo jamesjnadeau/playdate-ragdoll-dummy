@@ -14,6 +14,7 @@ void suite_rig(void);
 void suite_hallway(void);
 void suite_dummy(void);
 void suite_player(void);
+void suite_swing(void);
 
 int main(void) {
     RUN(smoke);
@@ -28,6 +29,7 @@ int main(void) {
     RUN(hallway);
     RUN(dummy);
     RUN(player);
+    RUN(swing);
     if (g_failures > 0) {
         printf("%d check(s) failed\n", g_failures);
         return 1;
