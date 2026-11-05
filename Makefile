@@ -3,6 +3,10 @@ STACK_SIZE     = 61800
 
 PRODUCT = RagdollDummies.pdx
 
+# Host tests need no SDK; only device/simulator targets do.
+HOST_ONLY := $(if $(MAKECMDGOALS),$(if $(filter-out test host-tests,$(MAKECMDGOALS)),,1),)
+
+ifeq ($(HOST_ONLY),)
 # Locate the SDK
 SDK = ${PLAYDATE_SDK_PATH}
 ifeq ($(SDK),)
@@ -11,6 +15,8 @@ endif
 
 ifeq ($(SDK),)
 $(error SDK path not found; set ENV value PLAYDATE_SDK_PATH)
+endif
+
 endif
 
 VPATH += src/core:src/platform/playdate
@@ -39,7 +45,9 @@ ULIBS =
 # Host unit tests (pure src/core only; no Playdate SDK involved)
 HOST_CFLAGS = -std=c99 -O1 -g -Wall -Wextra -Wdouble-promotion -Wfloat-conversion -fsingle-precision-constant -Werror -Isrc/core -Itests
 
+ifeq ($(HOST_ONLY),)
 include $(SDK)/C_API/buildsupport/common.mk
+endif
 
 .PHONY: test check-doubles host-tests
 # Parallel by default: recurse with -j so only compilation fans out.
@@ -61,5 +69,5 @@ build/host/obj/%.o: %.c
 
 -include $(HOST_OBJ:.o=.d)
 
-check-doubles:
+check-doubles: device_bin
 	tools/check_no_doubles.sh build/pdex.elf

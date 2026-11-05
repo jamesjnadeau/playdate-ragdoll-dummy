@@ -3,7 +3,8 @@
 #include "pd_api.h"
 
 static PlaydateAPI* g_pd = NULL;
-static float g_probe = 0.0f;
+static volatile float g_probe = 0.0f;
+static volatile float g_probe_in = 0.5f;
 
 static int update(void* userdata) {
     (void)userdata;
@@ -18,7 +19,7 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg) {
     (void)arg;
     if (event == kEventInit) {
         g_pd = pd;
-        g_probe = sinf(0.5f); /* keeps the float toolchain path exercised by the double guard */
+        g_probe = sinf(g_probe_in); /* keeps the float toolchain path exercised by the double guard */
         pd->display->setRefreshRate(30);
         pd->system->setUpdateCallback(update, NULL);
     }
