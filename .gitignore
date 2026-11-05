@@ -1,0 +1,9 @@
+build/
+*.pdx
+.pdsim/
+__pycache__/
+.superpowers/
+Source/pdex.elf
+Source/pdex.so
+Source/pdex.dll
+Source/pdex.dylib
