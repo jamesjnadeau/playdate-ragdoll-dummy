@@ -1,6 +1,8 @@
 #include <string.h>
 #include "game.h"
 #include "draw_world.h"
+#include "hud.h"
+#include <math.h>
 #include "tuning.h"
 
 void game_init(Game* g, uint32_t seed) {
@@ -12,6 +14,9 @@ void game_init(Game* g, uint32_t seed) {
     hallway_init(&g->hall, &g->rng);
     player_init(&g->player);
     g->weapon = W_BAT;
+    g->mode = MODE_PLAY;
+    g->offer = W_BAT;
+    g->pickup_z = -1.0f;
     for (i = 0; i < DS_COUNT; i++) rig_default((DummySize)i, &g->rigs[i]);
     for (i = 0; i < WEAPON_COUNT; i++) weapon_rig_default(i, &g->wrigs[i]);
 }
@@ -68,6 +73,11 @@ void game_start_bench(Game* g, const BenchConfig* cfg) {
     camera_update(&g->cam);
     g->bench = cfg->scene;
     if (cfg->scene == BENCH_WAVE) bench_wave(g, cfg->distance);
+    if (cfg->scene == BENCH_OFFER) {   /* a pickup under the player's feet: the first update opens the offer */
+        g->weapon = W_BAT;
+        g->offer = W_SLEDGE;
+        g->pickup_z = cfg->distance + 0.1f;
+    }
     if (cfg->scene == BENCH_RAGDOLL) {   /* one dummy flung at the right wall, for screenshots */
         int d = dummy_spawn(&g->dummies, DS_MEDIUM, -0.5f, cfg->distance + 1.8f, -1);
         g->dummies.d[d].state = DST_RAGDOLL;
@@ -137,14 +147,39 @@ static void spawn_teeth(Game* g) {
     }
 }
 
+/* Every WEAPON_OFFER_EVERY_DOORS emptied doors, drops a pickup ahead of the player offering another weapon. */
+static void maybe_place_pickup(Game* g) {
+    int now = g->hall.doors_emptied;
+    if (now / WEAPON_OFFER_EVERY_DOORS > g->offer_doors_seen / WEAPON_OFFER_EVERY_DOORS && g->pickup_z < 0.0f) {
+        g->pickup_z = g->player.z + PICKUP_AHEAD;
+        g->offer = (WeaponId)(((int)g->weapon + 1 + rng_range(&g->rng, 0, (int)W_COUNT - 2)) % (int)W_COUNT);
+    }
+    g->offer_doors_seen = now;
+}
+
+/* The world is paused: A takes the offered weapon, B keeps the current one. Presses only, not holds. */
+static void offer_update(Game* g, const GameInput* in) {
+    if (!(in->pressed & (BTN_A | BTN_B))) return;
+    if (in->pressed & BTN_A) {
+        g->weapon = g->offer;
+        memset(&g->swing, 0, sizeof(g->swing));   /* a swing in progress belonged to the old weapon */
+    }
+    g->pickup_z = -1.0f;
+    g->mode = MODE_PLAY;
+}
+
 void game_update(Game* g, const GameInput* in) {
     int i, pev;
+    if (g->mode == MODE_OFFER) { offer_update(g, in); return; }
+    if (g->mode != MODE_PLAY) return;   /* other modes come in later tasks */
     for (i = 0; i < MAX_IMPACTS; i++) if (g->impacts[i].t > 0) g->impacts[i].t--;
     if (g->hurt_t > 0) g->hurt_t--;
     pev = player_update(&g->player, in, &g->hall, &g->dummies, g->pending_damage);
     if (pev & PEV_HURT) g->hurt_t = HURT_SHAKE_FRAMES;
     g->pending_damage = 0;
     g->cam.player_z = g->player.z;
+    maybe_place_pickup(g);
+    if (g->pickup_z >= 0.0f && fabsf(g->pickup_z - g->player.z) <= PICKUP_RADIUS) g->mode = MODE_OFFER;
     if (in->pressed & BTN_UP) camera_set_aim(&g->cam, g->cam.aim + 1);
     if (in->pressed & BTN_DOWN) camera_set_aim(&g->cam, g->cam.aim - 1);
     camera_update(&g->cam);
@@ -205,6 +240,11 @@ void game_render(Game* g) {
     int i;
     rl_clear(&g->rl);
     draw_world(&g->rl, &g->cam, &g->hall, &g->dummies, g->rigs, &g->ragdolls, g->frame);
+    if (g->pickup_z >= 0.0f) {
+        int start = g->rl.n;
+        draw_pickup(&g->rl, &g->cam, g->pickup_z, IMG_WEAPON_ICON0 + (int)g->offer);
+        rl_offset(&g->rl, start, 0, (int)lroundf(PICKUP_BOB_PX * sinf(PICKUP_BOB_RAD_PER_FRAME * (float)g->frame)));
+    }
     if (g->hurt_t > 0) {
         /* Fixed pattern, so renders are deterministic. Only the world shakes. */
         static const int8_t pattern[HURT_SHAKE_FRAMES][2] = { {1, -1}, {-1, 1}, {1, 1}, {-1, -1}, {1, 0}, {0, 1} };
@@ -216,4 +256,8 @@ void game_render(Game* g) {
     for (i = 0; i < MAX_IMPACTS; i++)
         if (g->impacts[i].t > 0) draw_impact(&g->rl, g->impacts[i].x, g->impacts[i].y, g->impacts[i].r);
     draw_weapon(&g->rl, &g->swing, &g->wrigs[g->weapon], IMG_WEAPON_HELD0 + (int)g->weapon);
+    if (g->mode == MODE_OFFER) {
+        rl_rect(&g->rl, 0.0f, 0.0f, SCREEN_W, SCREEN_H, PAT_D50, false);
+        hud_draw_offer(&g->rl, g->weapon, g->offer);
+    }
 }

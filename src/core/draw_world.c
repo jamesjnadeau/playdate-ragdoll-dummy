@@ -107,3 +107,11 @@ void draw_impact(RenderList* rl, float x, float y, float r) {
     star(rl, x, y, r + IMPACT_OUTLINE_PX, PAT_BLACK);
     star(rl, x, y, r, PAT_WHITE);
 }
+
+void draw_pickup(RenderList* rl, const Camera* cam, float z, int icon_image) {
+    Vec3 w = { 0.0f, PICKUP_LIFT_M, z };
+    float sx, sy, ppm, k;
+    if (!camera_project(cam, w, &sx, &sy, &ppm)) return;
+    k = ppm * PICKUP_ICON_M / PICKUP_ICON_PX;
+    rl_bitmap(rl, icon_image, sx, sy, 0.0f, 0.5f, 0.5f, k, k, false);
+}

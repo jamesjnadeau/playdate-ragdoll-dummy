@@ -128,6 +128,13 @@
 #define DUMMY_TARGET_Z_OFFSET 0.1f
 #define DOOR_SPAWN_INSET 0.3f
 #define WEAPON_OFFER_EVERY_DOORS 4
+#define PICKUP_AHEAD 3.0f            /* m ahead of the player that a weapon pickup is placed */
+#define PICKUP_RADIUS 0.5f           /* walking this close to the pickup opens the offer */
+#define PICKUP_ICON_M 0.5f           /* world width of the floor icon */
+#define PICKUP_ICON_PX 32.0f         /* source icon size */
+#define PICKUP_LIFT_M 0.3f           /* icon centre height above the floor */
+#define PICKUP_BOB_PX 3.0f           /* bob amplitude on screen */
+#define PICKUP_BOB_RAD_PER_FRAME 0.25f
 /* Weapon drawing (screen px, degrees; 0 deg points the weapon straight up). */
 #define WEAPON_REST_X 352.0f
 #define WEAPON_REST_Y 262.0f

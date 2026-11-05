@@ -15,7 +15,10 @@
 #include "combat.h"
 #include "ragdoll.h"
 #include "particles.h"
+#include "weapons.h"
 #include "tuning.h"
+
+typedef enum { MODE_TITLE, MODE_PLAY, MODE_OFFER, MODE_GAME_OVER, MODE_SKINS, MODE_CREDITS } GameMode;
 
 typedef struct { float x, y, r; int t; } Impact;   /* screen star, t = frames left */
 
@@ -31,6 +34,10 @@ typedef struct Game {
     int frame;
     Swing swing;
     WeaponId weapon;
+    GameMode mode;        /* only MODE_PLAY and MODE_OFFER are implemented so far */
+    WeaponId offer;       /* the weapon the pickup offers */
+    float pickup_z;       /* -1 when there is no pickup on the floor */
+    int offer_doors_seen; /* doors_emptied at the end of the last update, to spot new offers */
     bool prev_docked;     /* crank dock state last frame, to swallow the undock jump */
     HitResult hits[16];   /* this frame's hits, for effects and sounds */
     int nhits;
