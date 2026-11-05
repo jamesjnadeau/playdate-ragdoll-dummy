@@ -215,7 +215,34 @@ static void test_slam_with_emerging_and_no_remaining(void) {
     CHECK_EQ_INT(g.hall.doors[0].state, DOOR_CLOSED_DONE);
 }
 
+static void test_walk_back_limit(void) {
+    Player p; Hallway h; DummyPool dp; GameInput back = held(BTN_B);
+    int f;
+    memset(&dp, 0, sizeof(dp));
+    setup_door(&h, 2);
+    h.doors[0].z = 10.0f;
+    player_init(&p);
+    p.z = 9.0f;
+    CHECK_NEAR(player_back_floor(&p, &h), 10.0f - WALK_BACK_LIMIT, 1e-5f);
+    for (f = 0; f < 120; f++) player_update(&p, &back, &h, &dp, 0);
+    CHECK_NEAR(p.z, 10.0f - WALK_BACK_LIMIT, 0.01f);
+    /* already behind the floor (e.g. after knockback): B cannot move further, floor never pushes forward */
+    p.z = 5.0f;
+    player_update(&p, &back, &h, &dp, 0);
+    CHECK_NEAR(p.z, 5.0f, 1e-5f);
+    /* a door further than the limit behind the player is ignored */
+    p.z = 10.0f + WALK_BACK_LIMIT + 1.0f;
+    CHECK_NEAR(player_back_floor(&p, &h), 0.0f, 1e-5f);
+    /* no open doors: only min_z */
+    h.doors[0].state = DOOR_CLOSED_FULL;
+    p.z = 9.0f; p.min_z = 2.0f;
+    CHECK_NEAR(player_back_floor(&p, &h), 2.0f, 1e-5f);
+    for (f = 0; f < 200; f++) player_update(&p, &back, &h, &dp, 0);
+    CHECK_NEAR(p.z, 2.0f, 0.01f);
+}
+
 void suite_player(void) {
+    test_walk_back_limit();
     test_back_floor_survives_recycle();
     test_slam_with_emerging_and_no_remaining();
     test_player_walks();

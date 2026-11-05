@@ -30,11 +30,15 @@ static float block_limit(const Player* p, const DummyPool* dp) {
     return lim;
 }
 
-static float back_floor(const Hallway* h) {
-    float f = 0.0f;
+float player_back_floor(const Player* p, const Hallway* h) {
+    float f = p->min_z, nearest = 1e30f;
     int i;
-    for (i = 0; i < h->ndoors; i++)
-        if (h->doors[i].state == DOOR_CLOSED_DONE && h->doors[i].z > f) f = h->doors[i].z;
+    for (i = 0; i < h->ndoors; i++) {
+        const Door* d = &h->doors[i];
+        if (d->state == DOOR_CLOSED_DONE && d->z > f) f = d->z;
+        if (d->state == DOOR_OPEN && d->z >= p->z - WALK_BACK_LIMIT && d->z < nearest) nearest = d->z;
+    }
+    if (nearest < 1e29f && nearest - WALK_BACK_LIMIT > f) f = nearest - WALK_BACK_LIMIT;
     return f;
 }
 
@@ -47,10 +51,13 @@ static bool door_has_emerging(const DummyPool* dp, int door) {
 
 int player_update(Player* p, const GameInput* in, Hallway* h, DummyPool* dp, int incoming_damage) {
     int ev = PEV_NONE, i;
+    bool knocked = false;
     float prev = p->z, floor_z;
-    float bf = back_floor(h);
-    if (bf > p->min_z) p->min_z = bf;
-    floor_z = p->min_z;
+    float hard;
+    for (i = 0; i < h->ndoors; i++)
+        if (h->doors[i].state == DOOR_CLOSED_DONE && h->doors[i].z > p->min_z) p->min_z = h->doors[i].z;
+    hard = p->min_z;
+    floor_z = player_back_floor(p, h);
 
     if (p->invuln > 0) p->invuln--;
     if (incoming_damage > 0 && p->invuln == 0 && !p->dead) {
@@ -62,6 +69,7 @@ int player_update(Player* p, const GameInput* in, Hallway* h, DummyPool* dp, int
     if (p->dead) return ev;
 
     if (p->knock_frames > 0) {
+        knocked = true;
         p->z -= p->knock_v;
         p->knock_frames--;
     } else {
@@ -75,7 +83,12 @@ int player_update(Player* p, const GameInput* in, Hallway* h, DummyPool* dp, int
             if (p->z > lim) p->z = lim;
         }
     }
-    if (p->z < floor_z) p->z = floor_z;
+    /* Holding B never goes below the floor, but the floor never pushes the player forward. */
+    if (p->z < prev && !(p->knock_frames > 0 || knocked)) {
+        float lo = floor_z < prev ? floor_z : prev;
+        if (p->z < lo) p->z = lo;
+    }
+    if (p->z < hard) p->z = hard;
 
     for (i = 0; i < h->ndoors; i++) {
         Door* d = &h->doors[i];

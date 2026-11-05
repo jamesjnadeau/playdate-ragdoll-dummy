@@ -15,6 +15,8 @@
 #define FAR_Z 16.0f
 #define PLAYER_SPEED 1.6f
 #define PLAYER_RADIUS 0.35f
+/* Owner wants this configurable: how far (m) the player may walk back from the nearest open door. */
+#define WALK_BACK_LIMIT 3.0f
 #define PLAYER_HEARTS 5
 #define PLAYER_INVULN_FRAMES 20
 #define KNOCKBACK_DIST 1.0f
