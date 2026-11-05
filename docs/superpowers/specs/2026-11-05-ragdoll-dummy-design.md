@@ -169,8 +169,8 @@ bottom to top for an upward swing, top to bottom for a downward one), with
 speed lines. Weapon art is therefore a single image per weapon. HUD (Builder's call, from the mockup): hearts top left,
 distance in metres top centre, bag count top right, weapon name with speed
 and power bars bottom left, swing-direction indicator bottom centre.
-Taking damage: screen shake plus a one-frame inverted flash. A dummy about to
-hit from behind shows an arrow at the screen edge.
+Taking damage: screen shake plus a one-frame inverted flash. Dummies never
+come from behind (§6.7), so no rear warning is needed.
 
 ### 6.2 Controls
 
@@ -272,11 +272,25 @@ Reactions (from the mockups, with owner feedback applied):
 - The deeper you go, the more enemies you must defeat at once, and the more
   doors and enemies spawn.
 
+**Decided:** dummies block the way. They are solid: the player cannot walk
+through or past a dummy, so moving forward means knocking out the ones in
+front. Distance counts forward progress only. Dummies that reach the player
+hurt them.
+
+**Decided:** doors are closed behind you. Dummies can't come out of a door
+you've passed, and you can't get past a door while a dummy can still come out
+of it. As you walk past a door you close it. If dummies are still inside,
+the door bursts back open: the slam throws you back (knockback) and the next
+dummy comes out. So every door must be emptied before you pass it, and all
+fighting happens in front of you.
+
 **Builder's call (proposed):**
 - Bag count = dummies knocked out, plus a small bonus per burst.
-- Waves: walking past a trigger opens doors and releases a wave. Wave size,
-  door count, size mix and doors behind the player all increase with
-  distance.
+- Each door holds a number of dummies that come out one after another as
+  the player approaches. Dummies per door, doors open at once, and the mix
+  of sizes all increase with distance.
+- Door-slam knockback pushes the player back about a metre and costs no
+  health; its purpose is to say "not yet", not to punish.
 - Player has 5 hearts; no healing in the first release.
 - Best bag count and best distance are saved on the device.
 - Simple title screen, game-over screen with bag count and bests, Skins menu
@@ -322,7 +336,7 @@ and match across packs. The default art ships as a normal pack (`core`).
   weapon-<id>/   held.png (the weapon only, no hands) icon.png
   stuffing/      puff-1.png [puff-2..4.png] scrap-1.png [scrap-2..4.png]
   sounds/        swing.wav hit-light.wav hit-heavy.wav burst.wav
-                 grunt-1.wav [grunt-2..3.wav] ...
+                 grunt-1.wav [grunt-2..3.wav] door-slam.wav ...
 ```
 
 A pack includes only the folders for the pieces it covers. Optional files
