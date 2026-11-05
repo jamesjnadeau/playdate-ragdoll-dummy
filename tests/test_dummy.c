@@ -139,6 +139,73 @@ static void test_spawn_pipeline(void) {
     CHECK(g.hall.ndoors > 0);
 }
 
+/* Owner-configurable difficulty: tougher with distance, capped live count. */
+static void test_hp_scales_with_distance(void) {
+    DummyPool p;
+    int a, b;
+    memset(&p, 0, sizeof(p));
+    a = dummy_spawn(&p, DS_MEDIUM, 0.0f, 0.0f, -1);
+    b = dummy_spawn(&p, DS_LARGE, 0.0f, 400.0f, -1);
+    CHECK_NEAR(p.d[a].hp, dummy_max_hp(DS_MEDIUM), 1e-4f);
+    CHECK_NEAR(p.d[a].max_hp, dummy_max_hp(DS_MEDIUM), 1e-4f);
+    CHECK_NEAR(p.d[b].hp, dummy_max_hp(DS_LARGE) * 2.0f, 1e-4f);
+    CHECK_NEAR(p.d[b].max_hp, dummy_max_hp(DS_LARGE) * 2.0f, 1e-4f);
+}
+
+static void fill_live(Game* g, int n) {
+    int i;
+    for (i = 0; i < n; i++) {
+        int s = dummy_spawn(&g->dummies, DS_SMALL, -1.0f + 0.2f * (float)i, 40.0f + (float)i, -1);
+        g->dummies.d[s].state = DST_WALK;
+    }
+}
+
+static Door* open_due_door(Game* g) {
+    Door* d;
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    game_update(g, &in);   /* generates doors */
+    d = &g->hall.doors[0];
+    d->state = DOOR_OPEN; d->leaf_angle = 1.0f; d->remaining = 3; d->spawn_timer = 0;
+    return d;
+}
+
+static void test_live_cap_blocks_door(void) {
+    Game g; GameInput in; Door* d; int i, live = 0;
+    memset(&in, 0, sizeof(in));
+    game_init(&g, 9);
+    d = open_due_door(&g);
+    fill_live(&g, MAX_LIVE_DUMMIES);
+    for (i = 0; i < 3; i++) game_update(&g, &in);
+    CHECK_EQ_INT(d->remaining, 3);
+    CHECK_EQ_INT(d->spawn_timer, 0);
+    for (i = 0; i < MAX_DUMMIES; i++) live += g.dummies.d[i].alive;
+    CHECK_EQ_INT(live, MAX_LIVE_DUMMIES);
+}
+
+static void test_ragdolls_do_not_count_toward_cap(void) {
+    Game g; GameInput in; Door* d; int i;
+    memset(&in, 0, sizeof(in));
+    game_init(&g, 9);
+    d = open_due_door(&g);
+    fill_live(&g, MAX_LIVE_DUMMIES);
+    CHECK_EQ_INT(dummy_live_count(&g.dummies), MAX_LIVE_DUMMIES);
+    g.dummies.d[0].state = DST_RAGDOLL;
+    g.dummies.d[1].state = DST_DEAD;
+    CHECK_EQ_INT(dummy_live_count(&g.dummies), MAX_LIVE_DUMMIES - 2);
+    game_update(&g, &in);
+    CHECK_EQ_INT(d->remaining, 2);   /* one spawned into the free slot */
+    for (i = 0; i < 3; i++) game_update(&g, &in);
+    CHECK(d->remaining >= 1);
+}
+
+static void test_wave_bench_respects_cap(void) {
+    Game g; BenchConfig c;
+    c.scene = BENCH_WAVE; c.distance = 400.0f; c.seed = 5;
+    game_start_bench(&g, &c);
+    CHECK_EQ_INT(dummy_live_count(&g.dummies), MAX_LIVE_DUMMIES);
+}
+
 void suite_dummy(void) {
     test_dummy_pool_full();
     test_dummy_walks_toward_player();
@@ -150,4 +217,8 @@ void suite_dummy(void) {
     test_dummy_punch_damage();
     test_dummy_cooldown();
     test_spawn_pipeline();
+    test_hp_scales_with_distance();
+    test_live_cap_blocks_door();
+    test_ragdolls_do_not_count_toward_cap();
+    test_wave_bench_respects_cap();
 }

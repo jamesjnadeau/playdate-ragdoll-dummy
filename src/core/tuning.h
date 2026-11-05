@@ -36,6 +36,10 @@
 #define DUMMY_HP_SMALL 2.0f
 #define DUMMY_HP_MEDIUM 3.0f
 #define DUMMY_HP_LARGE 5.0f
+/* Owner wants this configurable: dummy health grows by this fraction of its base per 100 m of spawn distance. */
+#define DUMMY_HP_PER_100M 0.25f
+/* Owner wants this configurable: doors hold their next dummy while this many are alive (ragdolls and dead do not count). */
+#define MAX_LIVE_DUMMIES 10
 #define DUMMY_WINDUP_SMALL 12
 #define DUMMY_WINDUP_MEDIUM 16
 #define DUMMY_WINDUP_LARGE 24

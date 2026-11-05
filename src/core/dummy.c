@@ -17,6 +17,13 @@ float dummy_max_hp(DummySize s) { return k_hp[s]; }
 int dummy_windup_frames(DummySize s) { return k_windup[s]; }
 int dummy_damage(DummySize s) { return k_damage[s]; }
 
+int dummy_live_count(const DummyPool* p) {
+    int i, n = 0;
+    for (i = 0; i < MAX_DUMMIES; i++)
+        if (p->d[i].alive && p->d[i].state != DST_RAGDOLL && p->d[i].state != DST_DEAD) n++;
+    return n;
+}
+
 int dummy_spawn(DummyPool* p, DummySize size, float x, float z, int door) {
     int i;
     for (i = 0; i < MAX_DUMMIES; i++) {
@@ -29,7 +36,8 @@ int dummy_spawn(DummyPool* p, DummySize size, float x, float z, int door) {
         d->timer = DUMMY_EMERGE_FRAMES;
         d->x = x;
         d->z = z;
-        d->hp = dummy_max_hp(size);
+        d->max_hp = dummy_max_hp(size) * (1.0f + DUMMY_HP_PER_100M * z / 100.0f);
+        d->hp = d->max_hp;
         d->door = door;
         d->ragdoll = -1;
         return i;

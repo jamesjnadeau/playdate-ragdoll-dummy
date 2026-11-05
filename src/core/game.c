@@ -36,7 +36,7 @@ static void bench_wave(Game* g, float distance) {
         d->remaining = hallway_dummies_for_door(distance);
         door_of[opened++] = i;
     }
-    while (opened > 0 && guard++ < MAX_DUMMIES) {
+    while (opened > 0 && guard++ < MAX_DUMMIES && dummy_live_count(&g->dummies) < MAX_LIVE_DUMMIES) {
         const Door* d = &g->hall.doors[door_of[k % opened]];
         int s = dummy_spawn(&g->dummies, hallway_pick_size(&g->rng, d->z),
                             (float)d->side * (HALL_HALF_W - DOOR_SPAWN_INSET - 0.15f * (float)(k / opened)),
@@ -83,6 +83,7 @@ static void spawn_from_doors(Game* g) {
         if (d->state != DOOR_OPEN || d->remaining <= 0) continue;
         if (d->spawn_timer > 0) d->spawn_timer--;
         if (d->spawn_timer > 0) continue;
+        if (dummy_live_count(&g->dummies) >= MAX_LIVE_DUMMIES) continue;   /* cap reached: wait, like pool full */
         if (dummy_spawn(&g->dummies, hallway_pick_size(&g->rng, d->z),
                         (float)d->side * (HALL_HALF_W - DOOR_SPAWN_INSET),
                         d->z + DOOR_LEN * 0.5f, i) < 0)

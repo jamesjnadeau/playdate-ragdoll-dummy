@@ -223,7 +223,7 @@ static void test_ragdoll_slams_open_door(void) {
     CHECK_EQ_INT(h.doors[0].state, DOOR_CLOSED_FULL);
     CHECK_EQ_INT(h.doors[0].remaining, 2);
     CHECK_NEAR(h.doors[0].leaf_angle, 0.0f, 1e-6f);
-    CHECK_NEAR(dp.d[e].hp, dummy_max_hp(DS_MEDIUM) - RAGDOLL_DOORSLAM_DMG, 1e-4f);
+    CHECK_NEAR(dp.d[e].hp, dp.d[e].max_hp - RAGDOLL_DOORSLAM_DMG, 1e-4f);
     CHECK_EQ_INT(dp.d[e].state, DST_STAGGER);
 
     /* A slow touch, the other wall, and a hit outside the door's z-span leave it open. */

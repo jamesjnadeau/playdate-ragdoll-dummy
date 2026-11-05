@@ -207,7 +207,7 @@ static void test_bench_wave_and_storm(void) {
     for (int i = 0; i < g.hall.ndoors; i++) if (g.hall.doors[i].state == DOOR_OPEN) open++;
     for (int i = 0; i < MAX_DUMMIES; i++) if (g.dummies.d[i].alive) live++;
     CHECK(open >= 4);
-    CHECK_EQ_INT(live, MAX_DUMMIES);
+    CHECK_EQ_INT(live, MAX_LIVE_DUMMIES);
 
     c.scene = BENCH_BURST_STORM; c.distance = 0.0f; c.seed = 9;
     game_start_bench(&g, &c);

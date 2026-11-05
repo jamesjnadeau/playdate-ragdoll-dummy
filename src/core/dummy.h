@@ -9,7 +9,7 @@
 typedef enum { DST_EMERGING, DST_WALK, DST_WINDUP, DST_PUNCH, DST_STAGGER, DST_RAGDOLL, DST_DEAD } DummyState;
 typedef struct {
     bool alive; DummySize size; DummyState state; int timer;
-    float x, z, hp; int door;          /* door index it came from, -1 none */
+    float x, z, hp, max_hp; int door;          /* door index it came from, -1 none */
     int reaction; int reaction_t;      /* ReactionType (Task 11), frames left */
     int ragdoll;                       /* ragdoll index once knocked out, -1 */
     Vec3 launch;                       /* knockout launch vector, consumed by the ragdoll spawn (Task 13) */
@@ -21,7 +21,9 @@ int dummy_spawn(DummyPool* p, DummySize size, float x, float z, int door);
 float dummy_height(DummySize s);
 float dummy_radius(DummySize s);
 float dummy_speed(DummySize s);
-float dummy_max_hp(DummySize s);
+float dummy_max_hp(DummySize s);   /* base health of a size; a spawned dummy's own is Dummy.max_hp */
+/* Alive dummies that are not RAGDOLL or DEAD; this is what MAX_LIVE_DUMMIES limits. */
+int dummy_live_count(const DummyPool* p);
 int dummy_windup_frames(DummySize s);
 int dummy_damage(DummySize s);
 /* AI, separation, windup and punch. Sets *out_damage_to_player to the damage dealt this frame. */
