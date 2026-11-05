@@ -306,6 +306,14 @@ fighting happens in front of you.
 - Simple title screen, game-over screen with bag count and bests, Skins menu
   (§8.5).
 
+**Decided (during build):**
+- Doors hinge on the edge closest to the player and swing open toward the
+  player, out into the hallway, up to `DOOR_OPEN_MAX_DEG` (165°, nearly flat
+  against the wall). Left and right mirror each other.
+- Walking back (B) is limited to `WALK_BACK_LIMIT` (3 m) behind the nearest
+  open door, and never past a door the player has closed. Both values are
+  configurable in `src/core/tuning.h`.
+
 ### 6.8 Hallway
 
 Fixed look, not skinnable. A straight corridor with doors on both walls,
