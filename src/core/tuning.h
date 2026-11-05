@@ -183,4 +183,15 @@
 #define WEAPON_SHIFT_PX_PER_FRAME 10.0f
 #define WEAPON_REBASE_DEG 3600.0f
 
+/* Weapon contact (swept weapon vs dummy hit boxes). */
+#define WEAPON_SWEEP_STEP_DEG 4.0f   /* sample spacing along a frame's sweep */
+#define WEAPON_BOUNCE_RESTITUTION 0.4f
+#define DUMMY_RESIST_SMALL 45.0f     /* momentum a hit needs to carry through */
+#define DUMMY_RESIST_MEDIUM 70.0f
+#define DUMMY_RESIST_LARGE 130.0f
+#define MOMENTUM_REF 80.0f           /* a bat at 20 deg/frame at the tip is about 79.6 */
+#define DAMAGE_PER_MOMENTUM (1.0f / MOMENTUM_REF)
+#define HIT_SCALE_MIN 0.5f
+#define HIT_SCALE_MAX 1.5f
+
 #endif
