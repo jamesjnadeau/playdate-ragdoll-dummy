@@ -11,6 +11,7 @@
 /* Grip and tip on screen for the weapon at angle_deg about the current pivot. */
 void  weapon_segment(const Weapon* wp, const WeaponRig* wr, float angle_deg,
                      float* gx, float* gy, float* tx, float* ty);
+bool  contact_heavy(const WeaponDef* w, float m);      /* a hit that plays the heavy sound */
 float weapon_tip_radius(const WeaponRig* wr);            /* WEAPON_SWEEP_RADIUS + |tip - grip| */
 float contact_momentum(const WeaponDef* w, float vel_deg, float r_px);  /* mass * |vel|*pi/180 * r */
 float dummy_resist(DummySize s);

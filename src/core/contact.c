@@ -41,6 +41,10 @@ float dummy_resist(DummySize s) {
     return DUMMY_RESIST_LARGE;
 }
 
+bool contact_heavy(const WeaponDef* w, float m) {
+    return w->mass >= HIT_HEAVY_MASS && m >= HIT_HEAVY_MOMENTUM;
+}
+
 /* Screen tangent of the sweep at angle_deg in the direction of vel. */
 static void tangent(float angle_deg, float vel, float* tx, float* ty) {
     float sg = vel < 0.0f ? -1.0f : 1.0f;
@@ -179,6 +183,7 @@ static void apply_hit(const WeaponDef* w, Dummy* d, int dummy, const Contact* c,
     h->launch.x = 0.0f; h->launch.y = 0.0f; h->launch.z = 0.0f;
     h->sx = c->sx;
     h->sy = c->sy;
+    h->m = m;
 
     d->hp -= h->damage;
     d->reaction = (int)h->rx;

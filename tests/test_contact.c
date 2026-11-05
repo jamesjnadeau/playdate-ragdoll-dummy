@@ -103,10 +103,25 @@ static void test_balance_checks(void) {
     CHECK_NEAR(tip_m(W_BAT, -15.0f), tip_m(W_BAT, 15.0f), 0.0001f);
 }
 
+/* A body contact at the tip at normal speed (20 deg/frame) does the old canned swing's factor-1.0 damage. */
 static void test_normal_speed_matches_old_damage(void) {
-    const WeaponDef* w = weapon_def(W_BAT);
-    float dmg = tip_m(W_BAT, 20.0f) * w->power * DAMAGE_PER_MOMENTUM;
-    CHECK_NEAR(dmg, w->power, 0.02f * w->power);
+    static const float old_damage[W_COUNT] = { 0.6f, 1.0f, 1.4f, 2.4f };
+    int i;
+    for (i = 0; i < W_COUNT; i++) {
+        const WeaponDef* w = weapon_def((WeaponId)i);
+        float dmg = tip_m((WeaponId)i, 20.0f) * w->power * DAMAGE_PER_MOMENTUM;
+        CHECK_NEAR(dmg, old_damage[i], 0.03f * old_damage[i]);
+    }
+}
+
+/* Heavy sound: the sledge's lagging first hit in the game-flow sound test (m 52.5) is heavy;
+   fast bat and pan hits at the tip and the chicken at top speed are light. */
+static void test_heavy_sound_rule(void) {
+    CHECK(contact_heavy(weapon_def(W_SLEDGE), 52.5f));
+    CHECK(!contact_heavy(weapon_def(W_SLEDGE), 30.0f));
+    CHECK(!contact_heavy(weapon_def(W_BAT), tip_m(W_BAT, 30.0f)));
+    CHECK(!contact_heavy(weapon_def(W_PAN), tip_m(W_PAN, 30.0f)));
+    CHECK(!contact_heavy(weapon_def(W_CHICKEN), tip_m(W_CHICKEN, WEAPON_MAX_VEL)));
 }
 
 static void test_reaction_from_tangent(void) {
@@ -360,6 +375,7 @@ void suite_contact(void) {
     init_rigs();
     test_balance_checks();
     test_normal_speed_matches_old_damage();
+    test_heavy_sound_rule();
     test_reaction_from_tangent();
     test_sweep_hits_dummy_it_crosses();
     test_sweep_misses_dummy_not_crossed();

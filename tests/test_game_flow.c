@@ -653,6 +653,7 @@ static void test_sound_hit_light_and_heavy(void) {
     /* The lagging sledge goes through; the push-back can take the dummy off it and back on in one stroke. */
     swing_at_dummy(W_SLEDGE, 100.0f, &log);
     CHECK(log.counts[SND_HIT_HEAVY] >= 1);
+    CHECK(log.counts[SND_HIT_HEAVY] <= 2);
     CHECK_EQ_INT(log.counts[SND_HIT_LIGHT], 0);   /* no light hit and no bounce */
 }
 

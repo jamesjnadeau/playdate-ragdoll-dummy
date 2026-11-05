@@ -297,12 +297,13 @@ void game_update(Game* g, const GameInput* in) {
         bool was_attached = g->wp.attached;
         float prev_speed = fabsf(g->wp.vel);
         weapon_update(&g->wp, in, w);
+        /* Read before contact_sweep, so a bounce this frame cannot swallow the sound. */
+        if (prev_speed < SPEED_LINE_MIN_VEL && fabsf(g->wp.vel) >= SPEED_LINE_MIN_VEL) game_push_sound(g, SND_SWING);
         g->nhits = contact_sweep(&g->wp, w, &g->wrigs[g->weapon], &g->cam, &g->dummies, g->rigs, g->frame,
                                  g->hits, (int)(sizeof(g->hits) / sizeof(g->hits[0])));
-        if (prev_speed < SPEED_LINE_MIN_VEL && fabsf(g->wp.vel) >= SPEED_LINE_MIN_VEL) game_push_sound(g, SND_SWING);
         for (i = 0; i < g->nhits; i++) {
             const HitResult* h = &g->hits[i];
-            game_push_sound(g, h->damage >= HIT_HEAVY_DAMAGE ? SND_HIT_HEAVY : SND_HIT_LIGHT);
+            game_push_sound(g, contact_heavy(w, h->m) ? SND_HIT_HEAVY : SND_HIT_LIGHT);
             if (h->knockout) {   /* scored the moment the dummy goes down */
                 Dummy* d = &g->dummies.d[h->dummy];
                 if (!d->scored) { d->scored = true; g->bags++; }
