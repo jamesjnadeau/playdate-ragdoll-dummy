@@ -11,8 +11,13 @@ static LCDPattern g_pat[6];
 static int g_pat_ready = 0;
 static LCDBitmap** g_images = NULL;
 static int g_image_count = 0;
+static PlaydateAPI* g_pd = NULL;
 
 static void rot_cache_clear(void);
+#ifndef ROT_PREWARM
+#define ROT_PREWARM 1                    /* 0 turns the load-time pre-fill off */
+#endif
+#define ROT_PREWARM_BYTES (512 * 1024)  /* the pre-fill stops here (inside ROT_CACHE_MAX_BYTES) and never evicts what the game made */
 static short g_dim[IMG_COUNT];   /* max source dimension per image, for the off-screen cull; reset with the image table */
 
 void pd_render_set_images(LCDBitmap** images, int count) {
@@ -20,6 +25,7 @@ void pd_render_set_images(LCDBitmap** images, int count) {
     memset(g_dim, 0, sizeof g_dim);
     g_images = images;
     g_image_count = images ? count : 0;
+    if (g_pd) pd_render_prewarm(g_pd);   /* a swap (skins) empties the cache: refill it now, not mid-run */
 }
 
 static void make_pattern(LCDPattern out, const uint8_t black[8], int invert) {
@@ -61,7 +67,8 @@ static int iround(float v) {
  * drawBitmap. Lookup is a hash chain, so a hit costs a few compares. */
 #define ROT_STEPS 32
 #define ROT_MAX_PX 320                   /* larger images are drawn directly */
-#define ROT_BUDGET_BYTES (1536 * 1024)   /* the cache never holds more than this (1-bit data + mask) */
+/* Owner-set: the rotation cache never holds more than 2 MB (1-bit data + mask); the device has 16 MB of RAM. */
+#define ROT_CACHE_MAX_BYTES (2 * 1024 * 1024)
 #define ROT_CACHE 2048                   /* entries: a busy wave draws ~2700 distinct (image, angle, scale) combinations, and 384 slots churned (13 makes per frame on average) */
 #define ROT_HASH 4096
 #define ROT_MAKE_PER_FRAME 128           /* new cache images per frame; lower values measured worse (see report): misses cost the same as direct draws */
@@ -88,7 +95,7 @@ static float g_bscale[ROT_NB];       /* scale of each bucket */
 static float g_bthresh[ROT_NB];      /* scale above which a value falls in the next bucket */
 static int g_lru_head = -1, g_lru_tail = -1, g_free = -1;
 static int g_rot_bytes = 0;
-static PlaydateAPI* g_pd = NULL;
+_Static_assert(ROT_PREWARM_BYTES < ROT_CACHE_MAX_BYTES, "the pre-fill must leave room for the game's own entries");
 static int g_made = 0, g_backoff = 0;
 
 static unsigned rot_hash(int image, int astep, int bx, int by) {
@@ -182,12 +189,12 @@ static int rot_make(PlaydateAPI* pd, LCDBitmap* src, int image, int astep, int b
     if ((float)(w > h ? w : h) * (g_bscale[bx > by ? bx : by]) * 1.42f > (float)ROT_MAX_PX) return -1;
     /* Make room first: the new image is about (w*sx) * (h*sy) * 1.42^2 px at 2 bits per px (data + mask). */
     est = (int)((float)w * g_bscale[bx] * (float)h * g_bscale[by] * 2.0f * 0.25f) + 64;
-    while (g_lru_tail >= 0 && (g_free < 0 || g_rot_bytes + est > ROT_BUDGET_BYTES)) rot_free(g_lru_tail);
+    while (g_lru_tail >= 0 && (g_free < 0 || g_rot_bytes + est > ROT_CACHE_MAX_BYTES)) rot_free(g_lru_tail);
     bmp = pd->graphics->rotatedBitmap(src, qa, g_bscale[bx], g_bscale[by], &sz);
     if (!bmp) { g_backoff = ROT_BACKOFF_FRAMES; return -1; }
     g_made++;
     /* Over the byte budget, or no free slot: free the least recently used. */
-    while (g_lru_tail >= 0 && (g_free < 0 || g_rot_bytes + sz > ROT_BUDGET_BYTES)) rot_free(g_lru_tail);
+    while (g_lru_tail >= 0 && (g_free < 0 || g_rot_bytes + sz > ROT_CACHE_MAX_BYTES)) rot_free(g_lru_tail);
     idx = g_free;
     if (idx < 0) { pd->graphics->freeBitmap(bmp); return -1; }
     g_free = g_rot[idx].lnext;
@@ -259,6 +266,7 @@ static void exec_bitmap(PlaydateAPI* pd, const RenderCmd* c) {
 void pd_render_execute(PlaydateAPI* pd, const RenderList* rl) {
     const struct playdate_graphics* gfx = pd->graphics;
     g_pd = pd;
+    { static int fr; pd->system->logToConsole("F%d %d", fr++, g_made); }
     g_made = 0;
     if (g_backoff > 0) g_backoff--;
     if (!g_pat_ready) init_patterns();
@@ -305,4 +313,58 @@ void pd_render_execute(PlaydateAPI* pd, const RenderList* rl) {
             break;
         }
     }
+}
+
+/* ---- pre-warm ----
+ * The first draw of a limb at a new angle and scale costs a rotatedBitmap call (about 0.15 ms), and a busy
+ * frame can need dozens. The set below comes from what the wave, fight, walk and burst-storm benchmarks
+ * actually requested: arms, forearms and fists at every angle step; body, head, base and the common faces at
+ * the few angles poses produce (leaning a little either way); the held weapons at every angle; and the stuffing
+ * scraps. Scale buckets (both axes equal) cover dummies about 1.5 to 6 m away, likeliest first. */
+#if ROT_PREWARM
+static int prewarm_one(PlaydateAPI* pd, int image, int astep, int b, int* count) {
+    int saved = g_made, idx;
+    if (image < 0 || image >= g_image_count || !g_images[image]) return 1;
+    if (g_free < 0 || g_rot_bytes >= ROT_PREWARM_BYTES) return 0;   /* full: stop, never evict */
+    g_made = 0;                    /* pre-warming does not count against the per-frame make cap */
+    idx = rot_make(pd, g_images[image], image, astep, b, b);
+    g_made = saved;
+    if (g_backoff > 0) { g_backoff = 0; return 0; }   /* allocation failed: stop, and do not penalise play */
+    if (idx >= 0) (*count)++;
+    return 1;
+}
+#endif
+
+void pd_render_prewarm(PlaydateAPI* pd) {
+#if ROT_PREWARM
+    static const int k_buckets[] = { 10, 9, 11, 8, 12, 13 };   /* scale 1, 0.7, 1.4, 0.5, 2, 2.8 */
+    static const int k_limbs[] = { PART_ARM_UPPER, PART_ARM_LOWER, PART_FIST };
+    static const int k_body[] = { PART_BASE, PART_BODY, PART_HEAD, PART_FACE_MEAN, PART_FACE_KO, PART_FACE_SQUISH };
+    static const int k_small_steps[] = { 0, 31, 1, 30, 2, 29, 3 };
+    unsigned t0 = pd->system->getCurrentTimeMilliseconds();
+    int count = 0, bytes0 = g_rot_bytes, ok = 1;
+    g_pd = pd;
+    if (!g_images) return;
+    /* scraps first: they are tiny, and a burst needs all four variants at every angle at once */
+    for (int b = 6; b <= 12 && ok; b++)
+        for (int a = 0; a < ROT_STEPS && ok; a++)
+            for (int v = 0; v < STUFF_SCRAP_VARIANTS && ok; v++) ok = prewarm_one(pd, IMG_SCRAP0 + v, a, b, &count);
+    for (unsigned bi = 0; bi < sizeof(k_buckets) / sizeof(k_buckets[0]) && ok; bi++) {
+        int b = k_buckets[bi];
+        for (int a = 0; a < ROT_STEPS && ok; a++)
+            for (int s = 0; s < DS_COUNT && ok; s++)
+                for (unsigned p = 0; p < sizeof(k_limbs) / sizeof(k_limbs[0]) && ok; p++)
+                    ok = prewarm_one(pd, img_dummy((DummySize)s, (DummyPart)k_limbs[p]), a, b, &count);
+        for (unsigned a = 0; a < sizeof(k_small_steps) / sizeof(k_small_steps[0]) && ok; a++)
+            for (int s = 0; s < DS_COUNT && ok; s++)
+                for (unsigned p = 0; p < sizeof(k_body) / sizeof(k_body[0]) && ok; p++)
+                    ok = prewarm_one(pd, img_dummy((DummySize)s, (DummyPart)k_body[p]), k_small_steps[a], b, &count);
+    }
+    for (int a = 0; a < ROT_STEPS && ok; a++)
+        for (int w = 0; w < WEAPON_COUNT && ok; w++) ok = prewarm_one(pd, IMG_WEAPON_HELD0 + w, a, 10, &count);
+    pd->system->logToConsole("rotation cache pre-warmed: %d images, %d KB, %u ms", count, (g_rot_bytes - bytes0) / 1024,
+                             pd->system->getCurrentTimeMilliseconds() - t0);
+#else
+    (void)pd;
+#endif
 }

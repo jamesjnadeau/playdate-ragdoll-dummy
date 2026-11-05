@@ -95,6 +95,7 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg) {
         pd->display->setRefreshRate(30);
         pd_assets_load_core(pd, g_images, g_rigs, g_wrigs);
         pd_render_set_images(g_images, IMG_COUNT);
+        pd_render_prewarm(pd);
         pd_sound_init(pd, "packs/core/sounds");
         init_game(pd);
         save_load(pd);
