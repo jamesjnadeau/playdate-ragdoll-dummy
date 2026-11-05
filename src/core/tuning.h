@@ -169,4 +169,14 @@
 #define STEP_SOUND_FRAMES 12         /* walking frames per footstep sound */
 #define SOUND_QUEUE_MAX 16
 
+/* Weapon motion (crank-driven, spring-coupled). */
+#define CRANK_ZERO_DEG 0.0f          /* crank angle that points the weapon straight up */
+#define WEAPON_MAX_VEL 40.0f         /* degrees per frame */
+#define WEAPON_BOUNCE_DAMP 0.85f     /* loose weapon velocity multiplier per frame */
+#define WEAPON_STOP_VEL 0.5f
+#define WEAPON_RECONNECT_DEG 3.0f
+#define WEAPON_SHIFT_PX 100.0f
+#define WEAPON_SHIFT_PX_PER_FRAME 10.0f
+#define WEAPON_REBASE_DEG 3600.0f
+
 #endif

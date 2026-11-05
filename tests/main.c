@@ -15,6 +15,7 @@ void suite_hallway(void);
 void suite_dummy(void);
 void suite_player(void);
 void suite_swing(void);
+void suite_weapon_motion(void);
 void suite_combat(void);
 void suite_pose(void);
 void suite_ragdoll(void);
@@ -37,6 +38,7 @@ int main(void) {
     RUN(dummy);
     RUN(player);
     RUN(swing);
+    RUN(weapon_motion);
     RUN(combat);
     RUN(pose);
     RUN(ragdoll);
