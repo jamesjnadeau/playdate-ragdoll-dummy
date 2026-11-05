@@ -706,6 +706,14 @@ static void test_game_over_shows_updated_bests(void) {
     CHECK(has_text(&g_.rl, "Best distance: 120m"));
 }
 
+static void test_death_on_pickup_frame_clears_pickup(void) {
+    start(3);
+    g_.pickup_z = g_.player.z + 0.1f;   /* triggers the offer this very frame */
+    kill_player();
+    CHECK_EQ_INT(g_.mode, MODE_GAME_OVER);
+    CHECK_NEAR(g_.pickup_z, -1.0f, 1e-6f);
+}
+
 static void test_bench_title_scenes(void) {
     BenchConfig c;
     c.distance = 0.0f; c.seed = 1;
@@ -758,5 +766,6 @@ void suite_game_flow(void) {
     test_sound_queue_dedupes_and_is_bounded();
     test_crank_hint();
     test_game_over_shows_updated_bests();
+    test_death_on_pickup_frame_clears_pickup();
     test_bench_title_scenes();
 }

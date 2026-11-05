@@ -46,16 +46,19 @@ void pd_sound_play(PlaydateAPI* pd, SoundId id) {
     p = g_player[id];
     if (!p) return;
     if (id == SND_GRUNT) {
-        int k;
+        int k, found = 0;
         for (k = 0; k < GRUNT_VARIANTS; k++) {   /* the next variant that loaded */
             AudioSample* s = g_grunt[(g_grunt_next + k) % GRUNT_VARIANTS];
             if (s) {
                 pd->sound->sampleplayer->setSample(p, s);
                 g_grunt_next = (g_grunt_next + k + 1) % GRUNT_VARIANTS;
+                found = 1;
                 break;
             }
         }
+        if (!found) return;   /* no variant loaded: silent */
+    } else if (!g_sample[id]) {
+        return;   /* missing file: silent */
     }
-    if (!g_sample[id] && id != SND_GRUNT) return;   /* missing file: silent */
     pd->sound->sampleplayer->play(p, 1, 1.0f);
 }

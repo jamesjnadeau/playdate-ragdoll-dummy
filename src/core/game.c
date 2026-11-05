@@ -346,6 +346,7 @@ void game_update(Game* g, const GameInput* in) {
     if (g->player.hearts <= 0) g->player.dead = true;
     if (g->player.dead && !g->death_handled) {
         handle_death(g);
+        g->pickup_z = -1.0f;   /* a pickup that triggered on the death frame is gone */
         if (g->bench == BENCH_NONE) {   /* a benchmark scene keeps running, so it measures what it was built to */
             g->mode = MODE_GAME_OVER;
             g->over_t = 0;
