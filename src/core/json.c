@@ -1,4 +1,5 @@
 #include "json.h"
+#include <stdint.h>
 
 /* Container parse states. */
 enum {
@@ -326,12 +327,15 @@ bool json_num_f(const char* s, const JsonTok* t, int i, float* out) {
     if (exp10 < -38) exp10 = -38;
     for (k = 0; k < (exp10 < 0 ? -exp10 : exp10); k++) scale *= 10.0f;
     m = (exp10 < 0) ? m / scale : m * scale;
-    *out = neg ? -m : m;
+    if (neg) m = -m;
+    if (!(m <= 3.4028235e38f && m >= -3.4028235e38f)) return false; /* inf/nan */
+    *out = m;
     return true;
 }
 
 bool json_num_i(const char* s, const JsonTok* t, int i, int* out) {
-    int p, end, v = 0;
+    int p, end;
+    uint32_t v = 0, limit;
     bool neg = false;
     if (!s || !t || !out || i < 0 || t[i].type != JT_NUM) return false;
     p = t[i].start;
@@ -341,11 +345,14 @@ bool json_num_i(const char* s, const JsonTok* t, int i, int* out) {
         p++;
     }
     if (p >= end) return false;
+    limit = neg ? 2147483648u : 2147483647u;
     for (; p < end; p++) {
+        uint32_t d;
         if (!is_digit(s[p])) return false; /* fraction/exponent: not an int */
-        if (v > 214748364) return false;
-        v = v * 10 + (s[p] - '0');
+        d = (uint32_t)(s[p] - '0');
+        if (v > (limit - d) / 10u) return false;
+        v = v * 10u + d;
     }
-    *out = neg ? -v : v;
+    *out = neg ? (int)(0u - v) : (int)v;
     return true;
 }

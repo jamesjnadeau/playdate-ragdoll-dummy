@@ -89,11 +89,78 @@ void suite_json(void) {
         for (i = 0; i < 64; i++) deep[64 + i] = ']';
         deep[128] = 0;
         CHECK_EQ_INT(PARSE(deep, t, 64), -1);
-        deep[32] = 0; /* 32 deep, unterminated: invalid, but not for depth */
         memset(deep, '[', 32);
         memset(deep + 32, ']', 32);
         deep[64] = 0;
         CHECK_EQ_INT(PARSE(deep, t, 64), 32);
+        memset(deep, '[', 33);
+        memset(deep + 33, ']', 33);
+        deep[66] = 0;
+        CHECK_EQ_INT(PARSE(deep, t, 64), -1); /* 33 deep */
+    }
+    {
+        char deep[256];
+        int i, p = 0;
+        for (i = 0; i < 33; i++) {
+            memcpy(deep + p, "{\"a\":", 5);
+            p += 5;
+        }
+        deep[p++] = '1';
+        for (i = 0; i < 33; i++) deep[p++] = '}';
+        deep[p] = 0;
+        CHECK_EQ_INT(PARSE(deep, t, 64), -1); /* 33 nested objects */
+        p = 0;
+        for (i = 0; i < 32; i++) {
+            memcpy(deep + p, "{\"a\":", 5);
+            p += 5;
+        }
+        deep[p++] = '1';
+        for (i = 0; i < 32; i++) deep[p++] = '}';
+        deep[p] = 0;
+        CHECK_EQ_INT(PARSE(deep, t, 70), 65); /* 32 nested objects ok */
+    }
+
+    {
+        const char* nums[] = {"2147483647", "2147483648", "-2147483648", "-2147483649",
+                              "99999999999", "9999999999"};
+        const int ok[] = {1, 0, 1, 0, 0, 0};
+        int k;
+        for (k = 0; k < 6; k++) {
+            n = PARSE(nums[k], t, 4);
+            CHECK_EQ_INT(n, 1);
+            CHECK_EQ_INT(json_num_i(nums[k], t, 0, &iv), ok[k]);
+            if (k == 0) CHECK_EQ_INT(iv, 2147483647);
+            if (k == 2) CHECK_EQ_INT(iv, -2147483647 - 1);
+        }
+    }
+
+    {
+        const char* nums[] = {"9e38", "123456789e38", "-9e38",
+                              "123456789012345678901234567890123456789012", "3e38"};
+        const int ok[] = {0, 0, 0, 0, 1};
+        int k;
+        for (k = 0; k < 5; k++) {
+            n = PARSE(nums[k], t, 4);
+            CHECK_EQ_INT(n, 1);
+            CHECK_EQ_INT(json_num_f(nums[k], t, 0, &f), ok[k]);
+            if (ok[k]) CHECK(f > 2.9e38f && f < 3.1e38f);
+        }
+    }
+
+    {
+        /* Every proper prefix of a pack.json-like document must be rejected. */
+        const char* doc =
+            "{\"spec\":1,\"name\":\"Pa\\\"ck\\n\",\"parts\":[{\"id\":\"head\",\"w\":-1.5e1,"
+            "\"ok\":true,\"x\":null},{\"id\":\"arm\",\"w\":0.25,\"tags\":[1,2,[3]]}],"
+            "\"meta\":{\"a\":{\"b\":\"\\u0041\"},\"c\":false}}";
+        int dl = (int)strlen(doc), k;
+        int bad = 0;
+        CHECK(json_parse(doc, dl, t, 64) > 0);
+        for (k = 0; k < dl; k++) {
+            int r = json_parse(doc, k, t, 64);
+            if (r != -1 && r != -2) bad++;
+        }
+        CHECK_EQ_INT(bad, 0);
     }
 
     {
