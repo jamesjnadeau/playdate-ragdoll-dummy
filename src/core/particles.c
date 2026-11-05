@@ -129,7 +129,7 @@ void draw_particles(RenderList* rl, const Camera* cam, const ParticlePool* pp) {
         if (vis[i]) order[start[DEPTH_BUCKETS - 1 - bucket[i]]++] = (int16_t)i;
 
     {   /* Leave room for what is drawn after the particles (impact stars, weapon). */
-        int room = (int)(sizeof(rl->cmd) / sizeof(rl->cmd[0])) - PARTICLE_CMD_RESERVE - rl->n;
+        int room = RL_MAX_CMDS - RL_HUD_RESERVE - PARTICLE_CMD_RESERVE - rl->n;   /* the world ceiling, not the HUD reserve */
         int cap = room < PARTICLE_DRAW_MAX ? room : PARTICLE_DRAW_MAX;
         if (cap < 0) cap = 0;
         skip = n > cap ? n - cap : 0;   /* drop the farthest first */

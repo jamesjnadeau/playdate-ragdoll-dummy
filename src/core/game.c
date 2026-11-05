@@ -258,8 +258,8 @@ void game_render(Game* g) {
     for (i = 0; i < MAX_IMPACTS; i++)
         if (g->impacts[i].t > 0) draw_impact(&g->rl, g->impacts[i].x, g->impacts[i].y, g->impacts[i].r);
     draw_weapon(&g->rl, &g->swing, &g->wrigs[g->weapon], IMG_WEAPON_HELD0 + (int)g->weapon);
+    rl_hud_begin(&g->rl);   /* always: everything drawn from here on (HUD, panels) fits however busy the world was */
     if (g->mode == MODE_OFFER) {
-        rl_hud_begin(&g->rl);   /* the panel always fits, however busy the world was */
         rl_rect(&g->rl, 0.0f, 0.0f, SCREEN_W, SCREEN_H, PAT_DIM, false);
         hud_draw_offer(&g->rl, g->weapon, g->offer);
     }
