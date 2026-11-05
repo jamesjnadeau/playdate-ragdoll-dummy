@@ -12,6 +12,26 @@ void save_defaults(SaveData* s) {
     s->version = SAVE_VERSION;
 }
 
+void save_set_bests(SaveData* s, int best_bags, int best_distance_m) {
+    s->version = SAVE_VERSION;
+    s->best_bags = best_bags;
+    s->best_distance_m = best_distance_m;
+}
+
+void save_retry_init(SaveRetry* r) { r->fails = 0; r->wait = 0; }
+
+bool save_retry_due(SaveRetry* r) {
+    if (r->wait > 0) { r->wait--; return false; }
+    return true;
+}
+
+SaveRetryResult save_retry_report(SaveRetry* r, bool ok) {
+    if (ok) { save_retry_init(r); return SAVE_RETRY_OK; }
+    if (++r->fails >= SAVE_RETRY_MAX) { save_retry_init(r); return SAVE_RETRY_GAVE_UP; }
+    r->wait = SAVE_RETRY_WAIT_FRAMES;
+    return SAVE_RETRY_AGAIN;
+}
+
 /* Appends s at *pos; returns false (leaving *pos) if it does not fit with room for a final NUL. */
 static bool put(char* buf, int cap, int* pos, const char* s) {
     int n = (int)strlen(s);

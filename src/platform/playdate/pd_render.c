@@ -62,8 +62,8 @@ static int iround(float v) {
 #define ROT_STEPS 32
 #define ROT_MAX_PX 320                   /* larger images are drawn directly */
 #define ROT_BUDGET_BYTES (1536 * 1024)   /* the cache never holds more than this (1-bit data + mask) */
-#define ROT_CACHE 384
-#define ROT_HASH 512
+#define ROT_CACHE 2048                   /* entries: a busy wave draws ~2700 distinct (image, angle, scale) combinations, and 384 slots churned (13 makes per frame on average) */
+#define ROT_HASH 4096
 #define ROT_MAKE_PER_FRAME 128           /* new cache images per frame; lower values measured worse (see report): misses cost the same as direct draws */
 #define ROT_BACKOFF_FRAMES 30            /* no new cache images for this long after an allocation failure */
 #define ROT_BUCKETS_PER_OCTAVE 2

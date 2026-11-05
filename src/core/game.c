@@ -21,6 +21,47 @@ void game_init(Game* g, uint32_t seed) {
     for (i = 0; i < WEAPON_COUNT; i++) weapon_rig_default(i, &g->wrigs[i]);
 }
 
+/* A fresh run in MODE_PLAY. The bests and the platform-measured rigs belong to the device, not the run. */
+void game_start_run(Game* g, uint32_t seed) {
+    int best_bags = g->best_bags;
+    float best_distance = g->best_distance;
+    DummyRig rigs[DS_COUNT];
+    WeaponRig wrigs[WEAPON_COUNT];
+    memcpy(rigs, g->rigs, sizeof(rigs));
+    memcpy(wrigs, g->wrigs, sizeof(wrigs));
+    game_init(g, seed);
+    memcpy(g->rigs, rigs, sizeof(rigs));
+    memcpy(g->wrigs, wrigs, sizeof(wrigs));
+    g->best_bags = best_bags;
+    g->best_distance = best_distance;
+}
+
+void game_show_title(Game* g) {
+    int d;
+    game_start_run(g, rng_u32(&g->rng) ^ ((uint32_t)g->frame * 2654435761u));
+    g->mode = MODE_TITLE;
+    hallway_update(&g->hall, &g->rng, 0.0f);
+    d = dummy_spawn(&g->dummies, DS_MEDIUM, 0.0f, TITLE_DUMMY_Z, -1);
+    if (d >= 0) g->dummies.d[d].state = DST_WALK;
+}
+
+void game_push_sound(Game* g, SoundId id) {
+    int i;
+    for (i = 0; i < g->nsounds; i++) if (g->sounds[i] == (uint8_t)id) return;   /* one player per sound: repeats in a frame are inaudible */
+    if (g->nsounds < SOUND_QUEUE_MAX) g->sounds[g->nsounds++] = (uint8_t)id;
+}
+
+void game_knock_out(Game* g, int dummy, Vec3 launch) {
+    Dummy* d;
+    if (dummy < 0 || dummy >= MAX_DUMMIES) return;
+    d = &g->dummies.d[dummy];
+    if (!d->alive) return;
+    d->state = DST_RAGDOLL;
+    d->timer = 0;
+    d->launch = launch;
+    if (!d->scored) { d->scored = true; g->bags++; }
+}
+
 void game_apply_bests(Game* g, int best_bags, int best_distance_m) {
     g->best_bags = best_bags < 0 ? 0 : best_bags;
     g->best_distance = best_distance_m < 0 ? 0.0f : (float)best_distance_m;
@@ -32,6 +73,14 @@ void game_set_weapon_rigs(Game* g, const WeaponRig wrigs[WEAPON_COUNT]) {
 
 void game_set_rigs(Game* g, const DummyRig rigs[DS_COUNT]) {
     memcpy(g->rigs, rigs, sizeof(g->rigs));
+}
+
+/* The run just ended: a new best bag count or distance is kept and flagged for saving. */
+static void handle_death(Game* g) {
+    g->death_handled = true;
+    if (g->bags > g->best_bags) { g->best_bags = g->bags; g->seen_new_best = 1; }
+    if ((int)g->player.z > (int)g->best_distance) { g->best_distance = (float)(int)g->player.z; g->seen_new_best = 1; }
+    if (g->seen_new_best) g->save_dirty = true;
 }
 
 /* Wave: the 4 nearest doors ahead are open with their full quota, and the dummy pool is pre-filled. */
@@ -66,8 +115,7 @@ static void bench_storm_tick(Game* g) {
         float side = (i & 1) ? -1.0f : 1.0f;
         int d = dummy_spawn(&g->dummies, DS_SMALL, side * 0.3f, g->player.z + 1.6f + 0.35f * (float)i, -1);
         if (d < 0) continue;
-        g->dummies.d[d].state = DST_RAGDOLL;
-        g->dummies.d[d].launch = (Vec3){ side * 12.0f, 3.0f, 4.0f };
+        game_knock_out(g, d, (Vec3){ side * 12.0f, 3.0f, 4.0f });
     }
 }
 
@@ -85,8 +133,16 @@ void game_start_bench(Game* g, const BenchConfig* cfg) {
     }
     if (cfg->scene == BENCH_RAGDOLL) {   /* one dummy flung at the right wall, for screenshots */
         int d = dummy_spawn(&g->dummies, DS_MEDIUM, -0.5f, cfg->distance + 1.8f, -1);
-        g->dummies.d[d].state = DST_RAGDOLL;
-        g->dummies.d[d].launch = (Vec3){ 4.2f, 2.5f, 0.3f };
+        game_knock_out(g, d, (Vec3){ 4.2f, 2.5f, 0.3f });
+    }
+    if (cfg->scene == BENCH_TITLE) game_show_title(g);
+    if (cfg->scene == BENCH_GAMEOVER) {   /* a finished run with a new best, for screenshots */
+        g->bags = 14;
+        g->player.z = 120.0f;
+        g->player.hearts = 0;
+        g->player.dead = true;
+        handle_death(g);
+        g->mode = MODE_GAME_OVER;
     }
 }
 
@@ -175,34 +231,42 @@ static void offer_update(Game* g, const GameInput* in) {
     g->mode = MODE_PLAY;
 }
 
-/* The run just ended: a new best bag count or distance is kept and flagged for saving. */
-static void handle_death(Game* g) {
-    g->death_handled = true;
-    if (g->bags > g->best_bags) { g->best_bags = g->bags; g->seen_new_best = 1; }
-    if ((int)g->player.z > (int)g->best_distance) { g->best_distance = (float)(int)g->player.z; g->seen_new_best = 1; }
-    if (g->seen_new_best) g->save_dirty = true;
+/* The title: the hallway idles. A starts a run, B opens the skins menu. */
+static void title_update(Game* g, const GameInput* in) {
+    g->frame++;
+    hallway_update(&g->hall, &g->rng, 0.0f);
+    if (in->pressed & BTN_A) game_start_run(g, rng_u32(&g->rng) ^ ((uint32_t)g->frame * 2654435761u));
+    else if (in->pressed & BTN_B) g->mode = MODE_SKINS;
 }
 
-/* A dummy entering DST_RAGDOLL is a knockout: one bag, once per dummy. */
-static void score_knockouts(Game* g) {
-    int i;
-    for (i = 0; i < MAX_DUMMIES; i++) {
-        Dummy* d = &g->dummies.d[i];
-        if (d->alive && d->state == DST_RAGDOLL && !d->scored) { d->scored = true; g->bags++; }
-    }
+/* The run is over: A returns to the title, but only after a short lock. */
+static void game_over_update(Game* g, const GameInput* in) {
+    g->over_t++;
+    if (g->over_t > GAME_OVER_LOCK_FRAMES && (in->pressed & BTN_A)) game_show_title(g);
 }
 
 void game_update(Game* g, const GameInput* in) {
     int i, pev;
+    float prev_z;
+    g->nsounds = 0;
     g->held = in->held;
+    g->crank_docked = in->crank_docked;
+    if (g->mode == MODE_TITLE) { title_update(g, in); return; }
+    if (g->mode == MODE_GAME_OVER) { game_over_update(g, in); return; }
     if (g->mode == MODE_OFFER) { offer_update(g, in); return; }
-    if (g->mode != MODE_PLAY) return;   /* other modes come in later tasks */
+    if (g->mode != MODE_PLAY) return;   /* the skins menu and credits come in later tasks */
     for (i = 0; i < MAX_IMPACTS; i++) if (g->impacts[i].t > 0) g->impacts[i].t--;
     if (g->hurt_t > 0) g->hurt_t--;
+    prev_z = g->player.z;
     pev = player_update(&g->player, in, &g->hall, &g->dummies, g->pending_damage);
     if (pev & PEV_HURT) g->hurt_t = HURT_SHAKE_FRAMES;
+    if (pev & PEV_DOOR_SLAM) game_push_sound(g, SND_DOOR_SLAM);
+    if ((in->held & BTN_A) && g->player.z > prev_z) {
+        if (++g->step_t >= STEP_SOUND_FRAMES) { g->step_t = 0; game_push_sound(g, SND_STEP); }
+    } else {
+        g->step_t = 0;
+    }
     g->pending_damage = 0;
-    if (g->player.dead && !g->death_handled) handle_death(g);
     g->cam.player_z = g->player.z;
     maybe_place_pickup(g);
     if (g->pickup_z >= 0.0f && fabsf(g->pickup_z - g->player.z) <= PICKUP_RADIUS) g->mode = MODE_OFFER;
@@ -236,9 +300,21 @@ void game_update(Game* g, const GameInput* in) {
         const WeaponDef* w = weapon_def(g->weapon);
         if (g->prev_docked && !in->crank_docked) si.crank_delta = 0.0f;
         g->prev_docked = in->crank_docked;
-        if (swing_update(&g->swing, &si, w) == SWE_IMPACT)
+        SwingEvent se = swing_update(&g->swing, &si, w);
+        if (se == SWE_STARTED) game_push_sound(g, SND_SWING);
+        if (se == SWE_IMPACT) {
             g->nhits = combat_resolve(&g->swing, w, g->cam.aim, g->player.z, &g->dummies,
                                       g->hits, (int)(sizeof(g->hits) / sizeof(g->hits[0])));
+            for (i = 0; i < g->nhits; i++) {
+                const HitResult* h = &g->hits[i];
+                game_push_sound(g, h->damage >= HIT_HEAVY_DAMAGE ? SND_HIT_HEAVY : SND_HIT_LIGHT);
+                if (h->knockout) {   /* scored the moment the dummy goes down */
+                    Dummy* d = &g->dummies.d[h->dummy];
+                    if (!d->scored) { d->scored = true; g->bags++; }
+                    game_push_sound(g, SND_GRUNT);
+                }
+            }
+        }
     }
     spawn_impacts(g);
     spawn_teeth(g);
@@ -253,20 +329,39 @@ void game_update(Game* g, const GameInput* in) {
         RagdollStepOut ro;
         ragdoll_step(&g->ragdolls, &g->dummies, &g->hall, g->rigs, &ro);
         g->nbursts = ro.burst_count;
-        g->bags += ro.burst_count;   /* a burst is worth one more bag; each ragdoll bursts once */
+        g->bags += ro.knockouts + ro.burst_count;   /* knockouts were marked scored as they happened; a burst is one more bag, once per ragdoll */
+        if (ro.knockouts > 0) game_push_sound(g, SND_GRUNT);
+        if (ro.door_slams > 0) game_push_sound(g, SND_DOOR_SLAM);
         for (i = 0; i < ro.burst_count; i++) {
+            game_push_sound(g, SND_BURST);
             g->bursts[i] = ro.burst_at[i];
             g->burst_n[i] = ro.burst_n[i];
             particles_burst(&g->particles, &g->rng, ro.burst_at[i], ro.burst_n[i]);
         }
     }
-    score_knockouts(g);
     particles_step(&g->particles);
+
+    /* Death is handled last, so the bags of this very frame count towards the bests. */
+    if (g->player.hearts <= 0) g->player.dead = true;
+    if (g->player.dead && !g->death_handled) {
+        handle_death(g);
+        if (g->bench == BENCH_NONE) {   /* a benchmark scene keeps running, so it measures what it was built to */
+            g->mode = MODE_GAME_OVER;
+            g->over_t = 0;
+            g->hurt_t = 0;   /* no frozen shake or inverted frame on the game-over screen */
+        }
+    }
 }
 
 void game_render(Game* g) {
     int i;
     rl_clear(&g->rl);
+    if (g->mode == MODE_TITLE) {   /* the hallway and one idle dummy, with the menu on plates over it */
+        draw_world(&g->rl, &g->cam, &g->hall, &g->dummies, g->rigs, NULL, g->frame);
+        rl_hud_begin(&g->rl);
+        hud_draw_title(&g->rl, g);
+        return;
+    }
     draw_world(&g->rl, &g->cam, &g->hall, &g->dummies, g->rigs, &g->ragdolls, g->frame);
     if (g->pickup_z >= 0.0f) {
         int start = g->rl.n;
@@ -289,5 +384,9 @@ void game_render(Game* g) {
     if (g->mode == MODE_OFFER) {
         rl_rect(&g->rl, 0.0f, 0.0f, SCREEN_W, SCREEN_H, PAT_DIM, false);
         hud_draw_offer(&g->rl, g->weapon, g->offer);
+    }
+    if (g->mode == MODE_GAME_OVER) {   /* the world where the player fell, dimmed under the result */
+        rl_rect(&g->rl, 0.0f, 0.0f, SCREEN_W, SCREEN_H, PAT_DIM, false);
+        hud_draw_game_over(&g->rl, g);
     }
 }

@@ -26,6 +26,8 @@ bool bench_parse(const char* json, int len, BenchConfig* out) {
         else if (strcmp(name, "skins") == 0) out->scene = BENCH_SKINS;
         else if (strcmp(name, "ragdoll") == 0) out->scene = BENCH_RAGDOLL;
         else if (strcmp(name, "offer") == 0) out->scene = BENCH_OFFER;
+        else if (strcmp(name, "title") == 0) out->scene = BENCH_TITLE;
+        else if (strcmp(name, "gameover") == 0) out->scene = BENCH_GAMEOVER;
         else return false;
     }
     i = json_obj_get(json, t, n, 0, "distance");

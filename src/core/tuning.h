@@ -160,4 +160,11 @@
 #define HURT_SHAKE_FRAMES 6
 #define HURT_SHAKE_PX 3
 
+/* Title, game over and sound. */
+#define TITLE_DUMMY_Z 4.0f           /* the idle dummy on the title screen */
+#define GAME_OVER_LOCK_FRAMES 15     /* A is ignored this long after death, so a walking player does not skip the screen */
+#define HIT_HEAVY_DAMAGE 1.4f        /* hits of at least this damage play the heavy sound */
+#define STEP_SOUND_FRAMES 12         /* walking frames per footstep sound */
+#define SOUND_QUEUE_MAX 16
+
 #endif

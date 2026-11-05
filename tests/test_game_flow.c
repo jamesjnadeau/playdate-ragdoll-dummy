@@ -296,6 +296,413 @@ static void test_hud_offer_panel(void) {
     CHECK_EQ_INT(rl.dropped, 0);
 }
 
+
+/* ---- Task 17: title, game over, sound ---- */
+
+static int has_text(const RenderList* rl, const char* s) {
+    int i;
+    for (i = 0; i < rl->n; i++)
+        if (rl->cmd[i].type == RC_TEXT && strcmp(rl->text + rl->cmd[i].text_off, s) == 0) return 1;
+    return 0;
+}
+
+static int count_sound(const Game* g, SoundId id) {
+    int i, n = 0;
+    for (i = 0; i < g->nsounds; i++) n += g->sounds[i] == id;
+    return n;
+}
+
+/* Runs frames until `frames` have passed, summing how often each sound was pushed. */
+static void tally(int frames, const GameInput* in, int counts[SND_COUNT]) {
+    int f, s;
+    for (f = 0; f < frames; f++) {
+        game_update(&g_, in);
+        for (s = 0; s < SND_COUNT; s++) counts[s] += count_sound(&g_, (SoundId)s);
+    }
+}
+
+static void test_title_to_play(void) {
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    game_init(&g_, 7);
+    g_.mode = MODE_TITLE;
+    g_.bags = 9;
+    g_.player.hearts = 1;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_TITLE);   /* waits for a press */
+    in.held = BTN_A;                      /* a hold is not a press */
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_TITLE);
+    in.pressed = BTN_A;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_PLAY);
+    CHECK_EQ_INT(g_.player.hearts, PLAYER_HEARTS);
+    CHECK_EQ_INT(g_.bags, 0);
+    CHECK(!g_.player.dead);
+}
+
+static void test_title_b_goes_to_skins(void) {
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    game_init(&g_, 7);
+    g_.mode = MODE_TITLE;
+    in.pressed = BTN_B;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_SKINS);
+}
+
+static void test_title_screen_contents(void) {
+    int i, dummies = 0;
+    game_init(&g_, 7);
+    game_apply_bests(&g_, 12, 345);
+    game_show_title(&g_);
+    CHECK_EQ_INT(g_.mode, MODE_TITLE);
+    game_render(&g_);
+    CHECK(has_text(&g_.rl, "RAGDOLL DUMMIES"));
+    CHECK(has_text(&g_.rl, "Press A to start"));
+    CHECK(has_text(&g_.rl, "B: Skins"));
+    CHECK(has_text(&g_.rl, "Best bags: 12"));
+    CHECK(has_text(&g_.rl, "Best distance: 345m"));
+    CHECK_EQ_INT(g_.rl.dropped, 0);
+    CHECK(g_.rl.hud_open);
+    for (i = 0; i < g_.rl.n; i++) {
+        const RenderCmd* c = &g_.rl.cmd[i];
+        if (c->type == RC_BITMAP && c->image >= IMG_DUMMY0 && c->image < IMG_WEAPON_HELD0) dummies++;
+    }
+    CHECK(dummies > 0);                       /* one idle dummy */
+    CHECK(count_type(&g_.rl, RC_POLY) > 10);  /* the hallway behind it */
+    CHECK_EQ_INT(g_.dummies.d[0].alive ? 1 : 0, 1);
+    CHECK_NEAR(g_.dummies.d[0].z, TITLE_DUMMY_Z, 1e-4f);
+}
+
+static void test_restart_keeps_bests_and_rigs(void) {
+    GameInput in;
+    DummyRig rigs[DS_COUNT];
+    int i;
+    memset(&in, 0, sizeof(in));
+    game_init(&g_, 7);
+    for (i = 0; i < DS_COUNT; i++) { rigs[i] = g_.rigs[i]; rigs[i].height_px += 3.0f; }
+    game_set_rigs(&g_, rigs);
+    game_apply_bests(&g_, 30, 400);
+    game_show_title(&g_);
+    in.pressed = BTN_A;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_PLAY);
+    CHECK_EQ_INT(g_.best_bags, 30);
+    CHECK_NEAR(g_.best_distance, 400.0f, 1e-4f);
+    CHECK_NEAR(g_.rigs[1].height_px, rigs[1].height_px, 1e-4f);
+    CHECK_EQ_INT(g_.seen_new_best, 0);
+    CHECK(!g_.save_dirty);
+}
+
+static void kill_player(void) {
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    g_.player.hearts = 1;
+    g_.pending_damage = 5;
+    game_update(&g_, &in);
+}
+
+static void test_death_to_game_over(void) {
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    start(3);
+    game_apply_bests(&g_, 0, 0);
+    g_.bags = 3;
+    g_.player.hearts = 0;          /* forced */
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_GAME_OVER);
+    CHECK(g_.save_dirty);          /* 3 bags beats 0 */
+    CHECK_EQ_INT(g_.best_bags, 3);
+    CHECK_EQ_INT(g_.seen_new_best, 1);
+    /* damage taking the last heart does the same */
+    start(3);
+    game_apply_bests(&g_, 50, 5000);
+    g_.bags = 2;
+    kill_player();
+    CHECK_EQ_INT(g_.mode, MODE_GAME_OVER);
+    CHECK(!g_.save_dirty);         /* no new best */
+    CHECK_EQ_INT(g_.seen_new_best, 0);
+}
+
+static void test_game_over_screen(void) {
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    start(3);
+    game_apply_bests(&g_, 1, 2);
+    g_.bags = 7;
+    g_.player.z = 25.0f;
+    kill_player();
+    game_render(&g_);
+    CHECK(has_text(&g_.rl, "BAGGED: 7"));
+    CHECK(has_text(&g_.rl, "Distance: 25m"));
+    CHECK(has_text(&g_.rl, "Best bags: 7"));
+    CHECK(has_text(&g_.rl, "Best distance: 25m"));
+    CHECK(has_text(&g_.rl, "NEW BEST!"));
+    CHECK_EQ_INT(g_.rl.dropped, 0);
+
+    start(3);
+    game_apply_bests(&g_, 99, 999);
+    g_.bags = 7;
+    kill_player();
+    game_render(&g_);
+    CHECK(has_text(&g_.rl, "BAGGED: 7"));
+    CHECK(has_text(&g_.rl, "Best bags: 99"));
+    CHECK(!has_text(&g_.rl, "NEW BEST!"));
+
+    /* A leaves for the title, but only a press after the lock, so a walking player does not skip it */
+    in.pressed = BTN_A;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_GAME_OVER);
+    memset(&in, 0, sizeof(in));
+    { int i; for (i = 0; i < GAME_OVER_LOCK_FRAMES; i++) game_update(&g_, &in); }
+    CHECK_EQ_INT(g_.mode, MODE_GAME_OVER);
+    in.pressed = BTN_A;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_TITLE);
+    CHECK_EQ_INT(g_.best_bags, 99);
+    game_render(&g_);
+    CHECK(has_text(&g_.rl, "Press A to start"));
+}
+
+/* Bests never go down: a weaker run after a stronger one leaves them, and a death is saved only when a best improves. */
+static void test_bests_survive_a_worse_run(void) {
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    start(3);
+    game_apply_bests(&g_, 0, 0);
+    g_.bags = 20;
+    g_.player.z = 300.0f;
+    kill_player();
+    CHECK_EQ_INT(g_.best_bags, 20);
+    CHECK_EQ_INT((int)g_.best_distance, 300);
+    g_.save_dirty = false;
+    /* back through the title into a new, worse run */
+    { int i; for (i = 0; i < GAME_OVER_LOCK_FRAMES; i++) game_update(&g_, &in); }
+    in.pressed = BTN_A;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_TITLE);
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_PLAY);
+    CHECK_EQ_INT(g_.best_bags, 20);
+    g_.bags = 5;
+    g_.player.z = 40.0f;
+    kill_player();
+    CHECK_EQ_INT(g_.mode, MODE_GAME_OVER);
+    CHECK_EQ_INT(g_.best_bags, 20);
+    CHECK_EQ_INT((int)g_.best_distance, 300);
+    CHECK(!g_.save_dirty);
+    CHECK_EQ_INT(g_.seen_new_best, 0);
+}
+
+static void test_sound_events(void) {
+    GameInput in;
+    int counts[SND_COUNT];
+    memset(&in, 0, sizeof(in));
+    memset(counts, 0, sizeof(counts));
+    start(3);
+    in.crank_delta = 30.0f;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.nsounds, 1);
+    CHECK_EQ_INT(count_sound(&g_, SND_SWING), 1);
+    in.crank_delta = 0.0f;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.nsounds, 0);   /* cleared at the start of each update */
+    tally(30, &in, counts);
+    CHECK_EQ_INT(counts[SND_SWING], 0);   /* once per swing */
+    /* cleared in the other modes too */
+    g_.sounds[0] = SND_BURST; g_.nsounds = 1;
+    g_.mode = MODE_OFFER;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.nsounds, 0);
+}
+
+/* A dummy in reach of a swing with `w`: returns the sounds the whole swing makes. */
+static void swing_at_dummy(WeaponId w, float hp, int counts[SND_COUNT]) {
+    GameInput in;
+    int d, i;
+    memset(&in, 0, sizeof(in));
+    memset(counts, 0, SND_COUNT * sizeof(int));
+    start(3);
+    for (i = 0; i < g_.hall.ndoors; i++) g_.hall.doors[i].remaining = 0;
+    g_.weapon = w;
+    d = dummy_spawn(&g_.dummies, DS_SMALL, 0.0f, g_.player.z + 0.9f, -1);
+    g_.dummies.d[d].state = DST_STAGGER;
+    g_.dummies.d[d].timer = 100;
+    g_.dummies.d[d].hp = hp;
+    in.crank_delta = 30.0f;
+    for (i = 0; i < 24; i++) {
+        int s;
+        game_update(&g_, &in);
+        for (s = 0; s < SND_COUNT; s++) counts[s] += count_sound(&g_, (SoundId)s);
+        in.crank_delta = 0.0f;
+        g_.dummies.d[d].timer = 100;
+    }
+}
+
+static void test_sound_hit_light_and_heavy(void) {
+    int c[SND_COUNT];
+    swing_at_dummy(W_CHICKEN, 100.0f, c);
+    CHECK_EQ_INT(c[SND_SWING], 1);
+    CHECK_EQ_INT(c[SND_HIT_LIGHT], 1);
+    CHECK_EQ_INT(c[SND_HIT_HEAVY], 0);
+    CHECK_EQ_INT(c[SND_GRUNT], 0);
+    swing_at_dummy(W_SLEDGE, 100.0f, c);
+    CHECK_EQ_INT(c[SND_HIT_HEAVY], 1);
+    CHECK_EQ_INT(c[SND_HIT_LIGHT], 0);
+}
+
+static void test_sound_grunt_on_knockout_and_bag_scored_at_once(void) {
+    int c[SND_COUNT];
+    swing_at_dummy(W_BAT, 0.1f, c);
+    CHECK_EQ_INT(c[SND_GRUNT], 1);
+    CHECK_EQ_INT(g_.bags >= 1 ? 1 : 0, 1);
+}
+
+/* The knockout bag is scored when the dummy goes down, so dying that same frame still counts it. */
+static void test_death_frame_knockout_counts(void) {
+    GameInput in;
+    int d, i;
+    memset(&in, 0, sizeof(in));
+    start(3);
+    game_apply_bests(&g_, 0, 0);
+    for (i = 0; i < g_.hall.ndoors; i++) g_.hall.doors[i].remaining = 0;
+    g_.weapon = W_BAT;
+    d = dummy_spawn(&g_.dummies, DS_SMALL, 0.0f, g_.player.z + 0.9f, -1);
+    g_.dummies.d[d].state = DST_STAGGER;
+    g_.dummies.d[d].timer = 100;
+    g_.dummies.d[d].hp = 0.1f;
+    in.crank_delta = 30.0f;
+    game_update(&g_, &in);
+    in.crank_delta = 0.0f;
+    for (i = 0; i < 40 && !(g_.swing.phase == SWS_SWEEP && g_.swing.t == 2); i++) {
+        g_.dummies.d[d].timer = 100;
+        game_update(&g_, &in);
+    }
+    CHECK_EQ_INT(g_.swing.phase, SWS_SWEEP);
+    CHECK_EQ_INT(g_.bags, 0);
+    g_.player.hearts = 1;
+    g_.pending_damage = 9;         /* the player dies on the very frame of the impact */
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_GAME_OVER);
+    CHECK_EQ_INT(g_.bags, 1);
+    CHECK_EQ_INT(g_.best_bags, 1); /* death handling ran after that frame's scoring */
+    CHECK(g_.save_dirty);
+}
+
+/* A bowled-out dummy is scored when the ragdoll knocks it down, and grunts. */
+static void test_bowled_knockout_scores_and_grunts(void) {
+    GameInput in;
+    int c[SND_COUNT], a, b, i;
+    memset(&in, 0, sizeof(in));
+    memset(c, 0, sizeof(c));
+    start(3);
+    for (i = 0; i < g_.hall.ndoors; i++) g_.hall.doors[i].remaining = 0;
+    a = dummy_spawn(&g_.dummies, DS_MEDIUM, 0.0f, g_.player.z + 1.5f, -1);
+    b = dummy_spawn(&g_.dummies, DS_MEDIUM, 0.0f, g_.player.z + 2.4f, -1);
+    g_.dummies.d[b].state = DST_STAGGER;
+    g_.dummies.d[b].timer = 1000;
+    g_.dummies.d[b].hp = 0.01f;
+    game_knock_out(&g_, a, (Vec3){ 0.0f, 1.0f, 8.0f });
+    CHECK_EQ_INT(g_.bags, 1);
+    for (i = 0; i < 20; i++) { g_.dummies.d[b].timer = 1000; tally(1, &in, c); if (g_.dummies.d[b].state == DST_RAGDOLL) break; }
+    CHECK_EQ_INT(g_.dummies.d[b].state, DST_RAGDOLL);
+    CHECK(g_.dummies.d[b].scored);
+    CHECK_EQ_INT(g_.bags, 2);
+    CHECK_EQ_INT(c[SND_GRUNT], 1);
+}
+
+static void test_sound_burst(void) {
+    GameInput in;
+    int c[SND_COUNT], d, i;
+    memset(&in, 0, sizeof(in));
+    memset(c, 0, sizeof(c));
+    start(3);
+    for (i = 0; i < g_.hall.ndoors; i++) g_.hall.doors[i].remaining = 0;
+    d = dummy_spawn(&g_.dummies, DS_SMALL, 0.3f, g_.player.z + 2.0f, -1);
+    game_knock_out(&g_, d, (Vec3){ 12.0f, 3.0f, 4.0f });
+    CHECK_EQ_INT(g_.bags, 1);
+    game_knock_out(&g_, d, (Vec3){ 12.0f, 3.0f, 4.0f });   /* once per dummy */
+    CHECK_EQ_INT(g_.bags, 1);
+    tally(200, &in, c);
+    CHECK_EQ_INT(c[SND_BURST], 1);
+    CHECK_EQ_INT(g_.bags, 2);
+}
+
+static void test_sound_steps(void) {
+    GameInput in;
+    int c[SND_COUNT];
+    memset(&in, 0, sizeof(in));
+    memset(c, 0, sizeof(c));
+    start(3);
+    tally(40, &in, c);
+    CHECK_EQ_INT(c[SND_STEP], 0);          /* standing */
+    in.held = BTN_A;
+    tally(24, &in, c);
+    CHECK_EQ_INT(c[SND_STEP], 2);          /* every 12 frames of walking */
+    CHECK(g_.player.z > 0.5f);
+}
+
+static void test_sound_door_slam(void) {
+    GameInput in;
+    int c[SND_COUNT];
+    Door* dr;
+    memset(&in, 0, sizeof(in));
+    memset(c, 0, sizeof(c));
+    start(3);
+    dr = &g_.hall.doors[0];
+    dr->state = DOOR_OPEN; dr->remaining = 3; dr->spawn_timer = 999; dr->leaf_angle = 1.0f;
+    g_.player.z = dr->z + DOOR_LEN * 0.5f - 0.02f;
+    g_.cam.player_z = g_.player.z;
+    in.held = BTN_A;
+    tally(3, &in, c);
+    CHECK_EQ_INT(c[SND_DOOR_SLAM], 1);
+}
+
+static void test_sound_queue_dedupes_and_is_bounded(void) {
+    int i;
+    start(3);
+    for (i = 0; i < 40; i++) game_push_sound(&g_, SND_HIT_LIGHT);
+    CHECK_EQ_INT(g_.nsounds, 1);   /* one player per sound: a repeat in the same frame adds nothing */
+    for (i = 0; i < SND_COUNT; i++) game_push_sound(&g_, (SoundId)i);
+    CHECK_EQ_INT(g_.nsounds, SND_COUNT);
+    CHECK(SND_COUNT <= SOUND_QUEUE_MAX);
+}
+
+static void test_crank_hint(void) {
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    start(3);
+    in.crank_docked = true;
+    game_update(&g_, &in);
+    game_render(&g_);
+    CHECK(has_text(&g_.rl, "Use the crank!"));
+    CHECK_EQ_INT(g_.rl.dropped, 0);
+    in.crank_docked = false;
+    game_update(&g_, &in);
+    game_render(&g_);
+    CHECK(!has_text(&g_.rl, "Use the crank!"));
+}
+
+static void test_bench_title_scenes(void) {
+    BenchConfig c;
+    c.distance = 0.0f; c.seed = 1;
+    c.scene = BENCH_TITLE;
+    game_start_bench(&g_, &c);
+    CHECK_EQ_INT(g_.mode, MODE_TITLE);
+    c.scene = BENCH_GAMEOVER;
+    game_start_bench(&g_, &c);
+    CHECK_EQ_INT(g_.mode, MODE_GAME_OVER);
+    game_render(&g_);
+    CHECK(has_text(&g_.rl, "NEW BEST!"));
+    c.scene = BENCH_WALK;
+    game_start_bench(&g_, &c);
+    CHECK_EQ_INT(g_.mode, MODE_PLAY);   /* the bench skips the title */
+    kill_player();
+    CHECK(g_.player.dead);
+    CHECK_EQ_INT(g_.mode, MODE_PLAY);   /* and a benchmark scene is not cut short by dying */
+}
+
 void suite_game_flow(void) {
     test_offer_after_4_doors();
     test_offer_take();
@@ -311,4 +718,22 @@ void suite_game_flow(void) {
     test_hud_mode_open_after_render_in_play();
     test_bench_offer_scene();
     test_hud_offer_panel();
+    test_title_to_play();
+    test_title_b_goes_to_skins();
+    test_title_screen_contents();
+    test_restart_keeps_bests_and_rigs();
+    test_death_to_game_over();
+    test_game_over_screen();
+    test_bests_survive_a_worse_run();
+    test_sound_events();
+    test_sound_hit_light_and_heavy();
+    test_sound_grunt_on_knockout_and_bag_scored_at_once();
+    test_death_frame_knockout_counts();
+    test_bowled_knockout_scores_and_grunts();
+    test_sound_burst();
+    test_sound_steps();
+    test_sound_door_slam();
+    test_sound_queue_dedupes_and_is_bounded();
+    test_crank_hint();
+    test_bench_title_scenes();
 }

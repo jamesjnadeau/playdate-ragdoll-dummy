@@ -103,8 +103,7 @@ static void test_score_burst_bonus(void) {
     for (i = 0; i < g_.hall.ndoors; i++) g_.hall.doors[i].remaining = 0;
     CHECK_EQ_INT(g_.bags, 0);
     d = dummy_spawn(&g_.dummies, DS_SMALL, 0.3f, g_.player.z + 2.0f, -1);
-    g_.dummies.d[d].state = DST_RAGDOLL;
-    g_.dummies.d[d].launch = (Vec3){ 12.0f, 3.0f, 4.0f };
+    game_knock_out(&g_, d, (Vec3){ 12.0f, 3.0f, 4.0f });
     game_update(&g_, &in);
     CHECK_EQ_INT(g_.bags, 1);   /* the knockout */
     seen_ko = g_.bags;
@@ -123,8 +122,7 @@ static void test_score_knockout_by_swing_counts_once(void) {
     game_update(&g_, &in);
     for (i = 0; i < g_.hall.ndoors; i++) g_.hall.doors[i].remaining = 0;
     d = dummy_spawn(&g_.dummies, DS_SMALL, 0.0f, g_.player.z + 2.0f, -1);
-    g_.dummies.d[d].state = DST_RAGDOLL;
-    g_.dummies.d[d].launch = (Vec3){ 0.0f, 0.5f, 0.2f };
+    game_knock_out(&g_, d, (Vec3){ 0.0f, 0.5f, 0.2f });
     for (i = 0; i < 3; i++) game_update(&g_, &in);
     CHECK_EQ_INT(g_.bags, 1);
 }
@@ -141,7 +139,7 @@ static void test_death_updates_bests(void) {
     g_.pending_damage = 5;
     game_update(&g_, &in);
     CHECK(g_.player.dead);
-    CHECK_EQ_INT(g_.mode, MODE_PLAY);
+    CHECK_EQ_INT(g_.mode, MODE_GAME_OVER);
     CHECK(!g_.save_dirty);          /* no new best: nothing to write */
     CHECK_EQ_INT(g_.best_bags, 10);
     CHECK_EQ_INT(g_.seen_new_best, 0);

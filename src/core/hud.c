@@ -112,6 +112,8 @@ static void disc(RenderList* rl, float cx, float cy, float r) {
     rl_rect(rl, cx - r + s, cy - r, 2.0f * (r - s), 2.0f * r, PAT_BLACK, false);
 }
 
+static void hud_draw_crank_hint(RenderList* rl);
+
 void hud_draw_play(RenderList* rl, const struct Game* g) {
     char buf[16];
     int i, hearts = g->player.hearts;
@@ -165,4 +167,72 @@ void hud_draw_play(RenderList* rl, const struct Game* g) {
             rl_poly(rl, tri, 3, PAT_BLACK);
         }
     }
+
+    if (g->crank_docked && g->mode == MODE_PLAY) hud_draw_crank_hint(rl);
+}
+
+/* ---- Title and game over ---- */
+
+#define MENU_LINE 18.0f
+#define TITLE_PLATE_W 190.0f
+#define TITLE_PLATE_H 30.0f
+#define TITLE_PLATE_Y 10.0f
+#define MENU_PLATE_W 250.0f
+#define MENU_PLATE_H 80.0f
+#define OVER_PLATE_X 70.0f
+#define OVER_PLATE_Y 24.0f
+#define OVER_PLATE_W 260.0f
+#define OVER_PLATE_H 192.0f
+#define CRANK_PLATE_W 150.0f
+#define CRANK_PLATE_Y 164.0f
+
+#define HEADING_CHAR_W 4.85f   /* half the advance of a capital letter, to centre headings */
+#define PLATE_TEXT_INSET 24.0f
+
+/* A heading in capitals, centred on the screen's middle. */
+static void heading(RenderList* rl, const char* s, float y) {
+    rl_text(rl, s, SCREEN_W * 0.5f - HEADING_CHAR_W * (float)strlen(s), y);
+}
+
+/* A line of mixed-case text, left-aligned on a plate (glyph widths vary too much to centre it by length). */
+static void line(RenderList* rl, float plate_x, const char* s, float y) {
+    rl_text(rl, s, plate_x + PLATE_TEXT_INSET, y);
+}
+
+void hud_draw_title(RenderList* rl, const struct Game* g) {
+    char buf[32];
+    float y = SCREEN_H - HUD_MARGIN - MENU_PLATE_H - 2.0f;
+    float x = (SCREEN_W - MENU_PLATE_W) * 0.5f;
+    plate(rl, (SCREEN_W - TITLE_PLATE_W) * 0.5f, TITLE_PLATE_Y, TITLE_PLATE_W, TITLE_PLATE_H);
+    heading(rl, "RAGDOLL DUMMIES", TITLE_PLATE_Y + 7.0f);
+    plate(rl, x, y, MENU_PLATE_W, MENU_PLATE_H);
+    line(rl, x, "Press A to start", y + 6.0f);
+    line(rl, x, "B: Skins", y + 6.0f + MENU_LINE);
+    label(buf, "Best bags: ", g->best_bags, "");
+    line(rl, x, buf, y + 6.0f + 2.0f * MENU_LINE);
+    label(buf, "Best distance: ", (int)g->best_distance, "m");
+    line(rl, x, buf, y + 6.0f + 3.0f * MENU_LINE);
+}
+
+void hud_draw_game_over(RenderList* rl, const struct Game* g) {
+    char buf[32];
+    float y = OVER_PLATE_Y;
+    plate(rl, OVER_PLATE_X, OVER_PLATE_Y, OVER_PLATE_W, OVER_PLATE_H);
+    heading(rl, "GAME OVER", y + 10.0f);
+    label(buf, "BAGGED: ", g->bags, "");
+    line(rl, OVER_PLATE_X, buf, y + 38.0f);
+    label(buf, "Distance: ", (int)g->player.z, "m");
+    line(rl, OVER_PLATE_X, buf, y + 38.0f + MENU_LINE);
+    label(buf, "Best bags: ", g->best_bags, "");
+    line(rl, OVER_PLATE_X, buf, y + 82.0f);
+    label(buf, "Best distance: ", (int)g->best_distance, "m");
+    line(rl, OVER_PLATE_X, buf, y + 82.0f + MENU_LINE);
+    if (g->seen_new_best) heading(rl, "NEW BEST!", y + 126.0f);
+    line(rl, OVER_PLATE_X, "Press A", y + 156.0f);
+}
+
+/* Shown while the crank is docked in play: the SDK 3.1.2 C API has no drawCrankIndicator. */
+static void hud_draw_crank_hint(RenderList* rl) {
+    plate(rl, (SCREEN_W - CRANK_PLATE_W) * 0.5f, CRANK_PLATE_Y, CRANK_PLATE_W, HUD_PLATE_H);
+    line(rl, (SCREEN_W - CRANK_PLATE_W) * 0.5f - 8.0f, "Use the crank!", CRANK_PLATE_Y + 4.0f);
 }

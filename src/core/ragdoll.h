@@ -32,7 +32,9 @@ typedef struct { Ragdoll r[RAGDOLL_MAX]; unsigned serial; } RagdollPool;
    The oldest ragdoll is recycled when the pool is full (its dummy becomes DST_DEAD). Returns the index. */
 int ragdoll_spawn(RagdollPool* p, DummyPool* dummies, int dummy, const DummyRig* rig, Vec3 launch);
 
-typedef struct { int burst_count; int burst_idx[6]; Vec3 burst_at[6]; Vec3 burst_n[6]; int bowl_hits; } RagdollStepOut;
+typedef struct { int burst_count; int burst_idx[6]; Vec3 burst_at[6]; Vec3 burst_n[6]; int bowl_hits;
+                     int knockouts;      /* dummies knocked out this step (door slams, bowling): already marked scored */
+                     int door_slams; } RagdollStepOut;   /* open doors a ragdoll slammed shut */
 /* One fixed step: Verlet, sticks, walls/floor/ceiling (impact damage, bursts), bowling into live dummies
    (chain knockouts spawn their own ragdolls), door slams (hall may be NULL) and settling. */
 void ragdoll_step(RagdollPool* p, DummyPool* dummies, Hallway* hall, const DummyRig rigs[DS_COUNT],

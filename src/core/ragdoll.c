@@ -197,6 +197,7 @@ void ragdoll_step(RagdollPool* p, DummyPool* dummies, Hallway* hall, const Dummy
                 if (dr->state != DOOR_OPEN || dr->side != c.slam_side[k]) continue;
                 if (c.slam_z[k] < dr->z || c.slam_z[k] > dr->z + DOOR_LEN) continue;
                 dr->state = DOOR_CLOSED_FULL;
+                out->door_slams++;
                 dr->leaf_angle = 0.0f;
                 for (di = 0; di < MAX_DUMMIES; di++) {
                     Dummy* d = &dummies->d[di];
@@ -205,6 +206,7 @@ void ragdoll_step(RagdollPool* p, DummyPool* dummies, Hallway* hall, const Dummy
                     d->reaction_t = 0;
                     if (d->hp <= 0.0f) {
                         d->state = DST_RAGDOLL; d->timer = 0; d->launch = (Vec3){ 0.0f, 0.0f, 0.0f };
+                        if (!d->scored) { d->scored = true; out->knockouts++; }
                         if (npend < MAX_PENDING) { pend[npend].dummy = di; pend[npend].launch = d->launch; npend++; }
                     } else {
                         d->state = DST_STAGGER; d->timer = DUMMY_STAGGER_FRAMES;
@@ -243,6 +245,7 @@ void ragdoll_step(RagdollPool* p, DummyPool* dummies, Hallway* hall, const Dummy
                 }
                 if (d->hp <= 0.0f) {
                     d->state = DST_RAGDOLL; d->timer = 0;
+                    if (!d->scored) { d->scored = true; out->knockouts++; }
                     d->launch = v3_scale(v, RAGDOLL_BOWL_LAUNCH);
                     if (npend < MAX_PENDING) { pend[npend].dummy = di; pend[npend].launch = d->launch; npend++; }
                 } else {

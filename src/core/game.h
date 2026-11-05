@@ -21,6 +21,8 @@
 
 typedef enum { MODE_TITLE, MODE_PLAY, MODE_OFFER, MODE_GAME_OVER, MODE_SKINS, MODE_CREDITS } GameMode;
 
+typedef enum { SND_SWING, SND_HIT_LIGHT, SND_HIT_HEAVY, SND_BURST, SND_GRUNT, SND_DOOR_SLAM, SND_STEP, SND_COUNT } SoundId;
+
 typedef struct { float x, y, r; int t; } Impact;   /* screen star, t = frames left */
 
 typedef struct Game {
@@ -35,7 +37,7 @@ typedef struct Game {
     int frame;
     Swing swing;
     WeaponId weapon;
-    GameMode mode;        /* only MODE_PLAY and MODE_OFFER are implemented so far */
+    GameMode mode;        /* MODE_TITLE, PLAY, OFFER and GAME_OVER are implemented; SKINS and CREDITS come later */
     WeaponId offer;       /* the weapon the pickup offers */
     float pickup_z;       /* -1 when there is no pickup on the floor */
     int offer_doors_seen; /* doors_emptied at the end of the last update, to spot new offers */
@@ -58,9 +60,22 @@ typedef struct Game {
     int seen_new_best;    /* this run's death set a new best (the game-over screen shows it) */
     bool save_dirty;      /* the platform must write the save file, then clear this */
     bool death_handled;   /* the run's death has been scored */
+    uint8_t sounds[SOUND_QUEUE_MAX];   /* SoundId events of this update, for the platform to play; cleared at the start of each update */
+    int nsounds;
+    bool crank_docked;    /* the crank was docked in the last update (the HUD asks for it to be pulled out) */
+    int over_t;           /* frames since death, to ignore A at first on the game-over screen */
+    int step_t;           /* walking frames since the last footstep sound */
 } Game;
 
 void game_init(Game* g, uint32_t seed);
+/* Starts a fresh run in MODE_PLAY. Unlike game_init it keeps the bests and the platform-measured rigs. */
+void game_start_run(Game* g, uint32_t seed);
+/* Enters the title screen: the hallway with one idle dummy. */
+void game_show_title(Game* g);
+/* Knocks a dummy out (launch in m/s) and scores its bag, once. */
+void game_knock_out(Game* g, int dummy, Vec3 launch);
+/* Queues a sound event (dropped when the queue is full). */
+void game_push_sound(Game* g, SoundId id);
 /* Copies the platform-measured rigs (part sizes) into the game. */
 void game_set_rigs(Game* g, const DummyRig rigs[DS_COUNT]);
 /* Copies the platform-measured weapon rigs (image sizes) into the game. */
