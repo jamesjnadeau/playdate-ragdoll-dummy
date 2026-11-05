@@ -8,6 +8,7 @@ void suite_rng(void);
 void suite_json(void);
 void suite_camera(void);
 void suite_render_list(void);
+void suite_draw_world(void);
 
 int main(void) {
     RUN(smoke);
@@ -16,6 +17,7 @@ int main(void) {
     RUN(json);
     RUN(camera);
     RUN(render_list);
+    RUN(draw_world);
     if (g_failures > 0) {
         printf("%d check(s) failed\n", g_failures);
         return 1;
