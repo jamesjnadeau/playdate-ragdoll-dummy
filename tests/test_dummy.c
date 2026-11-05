@@ -79,6 +79,21 @@ static void test_dummy_emerges(void) {
     CHECK_EQ_INT(p.d[i].state, DST_WALK);
 }
 
+static void test_emerging_is_immovable(void) {
+    DummyPool p;
+    int e, w;
+    memset(&p, 0, sizeof(p));
+    e = dummy_spawn(&p, DS_LARGE, 1.5f, 5.0f, 0);     /* past the wall clamp */
+    w = dummy_spawn(&p, DS_MEDIUM, 0.9f, 5.0f, -1);
+    p.d[w].state = DST_WALK;
+    run(&p, 3, 0.0f, NULL);
+    CHECK_EQ_INT(p.d[e].state, DST_EMERGING);
+    CHECK_NEAR(p.d[e].x, 1.5f, 1e-6f);
+    CHECK_NEAR(p.d[e].z, 5.0f, 1e-6f);
+    CHECK(sqrtf((p.d[w].x - 1.5f) * (p.d[w].x - 1.5f) + (p.d[w].z - 5.0f) * (p.d[w].z - 5.0f))
+          >= DUMMY_RADIUS_LARGE + DUMMY_RADIUS_MEDIUM - 1e-3f);
+}
+
 static void test_dummy_punch_damage(void) {
     DummyPool p;
     int i, f, dmg, hits = 0, first = 0;
@@ -131,6 +146,7 @@ void suite_dummy(void) {
     test_dummy_separation();
     test_dummy_walls();
     test_dummy_emerges();
+    test_emerging_is_immovable();
     test_dummy_punch_damage();
     test_dummy_cooldown();
     test_spawn_pipeline();

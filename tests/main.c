@@ -13,6 +13,7 @@ void suite_bench(void);
 void suite_rig(void);
 void suite_hallway(void);
 void suite_dummy(void);
+void suite_player(void);
 
 int main(void) {
     RUN(smoke);
@@ -26,6 +27,7 @@ int main(void) {
     RUN(rig);
     RUN(hallway);
     RUN(dummy);
+    RUN(player);
     if (g_failures > 0) {
         printf("%d check(s) failed\n", g_failures);
         return 1;

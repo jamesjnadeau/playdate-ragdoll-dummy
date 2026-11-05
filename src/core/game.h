@@ -9,6 +9,8 @@
 #include "bench.h"
 #include "hallway.h"
 #include "dummy.h"
+#include "player.h"
+#include "rig.h"
 
 typedef struct Game {
     Camera cam;
@@ -16,10 +18,15 @@ typedef struct Game {
     Rng rng;
     Hallway hall;
     DummyPool dummies;
-    int pending_damage;   /* damage dealt to the player, consumed by Task 9 */
+    Player player;
+    DummyRig rigs[DS_COUNT];
+    int pending_damage;   /* damage dealt to the player, consumed by the next player_update */
+    int frame;
 } Game;
 
 void game_init(Game* g, uint32_t seed);
+/* Copies the platform-measured rigs (part sizes) into the game. */
+void game_set_rigs(Game* g, const DummyRig rigs[DS_COUNT]);
 void game_update(Game* g, const GameInput* in);
 /* Starts a benchmark scene. Other scenes behave like WALK until their task. */
 void game_start_bench(Game* g, const BenchConfig* cfg);

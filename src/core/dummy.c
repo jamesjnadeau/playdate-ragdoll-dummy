@@ -116,13 +116,22 @@ void dummy_update_all(DummyPool* p, float player_z, float player_x, int* out_dam
                 if (dist >= min_d) continue;
                 if (dist < 1e-4f) { nx = 1.0f; nz = 0.0f; dist = 0.0f; }
                 else { nx = dx / dist; nz = dz / dist; }
-                push = (min_d - dist) * 0.5f;
-                a->x -= nx * push; a->z -= nz * push;
-                b->x += nx * push; b->z += nz * push;
+                /* EMERGING dummies are immovable obstacles: the other one takes the whole push. */
+                if (a->state == DST_EMERGING && b->state == DST_EMERGING) continue;
+                push = min_d - dist;
+                if (a->state == DST_EMERGING) {
+                    b->x += nx * push; b->z += nz * push;
+                } else if (b->state == DST_EMERGING) {
+                    a->x -= nx * push; a->z -= nz * push;
+                } else {
+                    push *= 0.5f;
+                    a->x -= nx * push; a->z -= nz * push;
+                    b->x += nx * push; b->z += nz * push;
+                }
             }
         }
         for (i = 0; i < MAX_DUMMIES; i++)
-            if (separable(&p->d[i])) clamp_dummy(&p->d[i], player_z);
+            if (separable(&p->d[i]) && p->d[i].state != DST_EMERGING) clamp_dummy(&p->d[i], player_z);
     }
 
     *out_damage_to_player = damage;
