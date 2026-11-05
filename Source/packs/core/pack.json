@@ -1,0 +1,136 @@
+{
+  "spec": 1,
+  "id": "core",
+  "name": "Core",
+  "version": "1.0.0",
+  "author": "Ragdoll Dummies contributors",
+  "license": "CC-BY-4.0",
+  "provides": [
+    "dummy-small",
+    "dummy-medium",
+    "dummy-large",
+    "weapon-chicken",
+    "weapon-bat",
+    "weapon-pan",
+    "weapon-sledge",
+    "stuffing",
+    "sounds"
+  ],
+  "anchors": {
+    "dummy-small": {
+      "height_px": 84,
+      "neck": [
+        0,
+        -54.6
+      ],
+      "shoulder_l": [
+        -14.0,
+        -44.8
+      ],
+      "shoulder_r": [
+        14.0,
+        -44.8
+      ],
+      "face_center": [
+        0,
+        -65.8
+      ],
+      "body_center": [
+        0,
+        -31.5
+      ],
+      "upper_arm_px": 14.0,
+      "lower_arm_px": 12.6
+    },
+    "dummy-medium": {
+      "height_px": 120,
+      "neck": [
+        0,
+        -78.0
+      ],
+      "shoulder_l": [
+        -20.0,
+        -64.0
+      ],
+      "shoulder_r": [
+        20.0,
+        -64.0
+      ],
+      "face_center": [
+        0,
+        -94.0
+      ],
+      "body_center": [
+        0,
+        -45.0
+      ],
+      "upper_arm_px": 20.0,
+      "lower_arm_px": 18.0
+    },
+    "dummy-large": {
+      "height_px": 156,
+      "neck": [
+        0,
+        -101.4
+      ],
+      "shoulder_l": [
+        -26.0,
+        -83.2
+      ],
+      "shoulder_r": [
+        26.0,
+        -83.2
+      ],
+      "face_center": [
+        0,
+        -122.2
+      ],
+      "body_center": [
+        0,
+        -58.5
+      ],
+      "upper_arm_px": 26.0,
+      "lower_arm_px": 23.4
+    },
+    "weapon-chicken": {
+      "grip": [
+        30,
+        170
+      ],
+      "tip": [
+        30,
+        2
+      ]
+    },
+    "weapon-bat": {
+      "grip": [
+        30,
+        171
+      ],
+      "tip": [
+        30,
+        2
+      ]
+    },
+    "weapon-pan": {
+      "grip": [
+        30,
+        169
+      ],
+      "tip": [
+        30,
+        2
+      ]
+    },
+    "weapon-sledge": {
+      "grip": [
+        30,
+        173
+      ],
+      "tip": [
+        30,
+        4
+      ]
+    }
+  }
+}

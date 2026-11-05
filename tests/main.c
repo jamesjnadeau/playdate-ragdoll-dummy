@@ -10,6 +10,7 @@ void suite_camera(void);
 void suite_render_list(void);
 void suite_draw_world(void);
 void suite_bench(void);
+void suite_rig(void);
 
 int main(void) {
     RUN(smoke);
@@ -20,6 +21,7 @@ int main(void) {
     RUN(render_list);
     RUN(draw_world);
     RUN(bench);
+    RUN(rig);
     if (g_failures > 0) {
         printf("%d check(s) failed\n", g_failures);
         return 1;
