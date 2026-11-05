@@ -1,0 +1,556 @@
+{
+ "events": [
+  {
+   "frame": 5,
+   "press": [
+    "a"
+   ]
+  },
+  {
+   "frame": 25,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 25,
+   "crank": 25.0
+  },
+  {
+   "frame": 26,
+   "crank": 25.0
+  },
+  {
+   "frame": 27,
+   "crank": 25.0
+  },
+  {
+   "frame": 50,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 50,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 50,
+   "crank": 25.0
+  },
+  {
+   "frame": 51,
+   "crank": 25.0
+  },
+  {
+   "frame": 52,
+   "crank": 25.0
+  },
+  {
+   "frame": 75,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 75,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 75,
+   "crank": 25.0
+  },
+  {
+   "frame": 76,
+   "crank": 25.0
+  },
+  {
+   "frame": 77,
+   "crank": 25.0
+  },
+  {
+   "frame": 100,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 100,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 100,
+   "crank": 25.0
+  },
+  {
+   "frame": 101,
+   "crank": 25.0
+  },
+  {
+   "frame": 102,
+   "crank": 25.0
+  },
+  {
+   "frame": 125,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 125,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 125,
+   "crank": 25.0
+  },
+  {
+   "frame": 126,
+   "crank": 25.0
+  },
+  {
+   "frame": 127,
+   "crank": 25.0
+  },
+  {
+   "frame": 150,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 150,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 150,
+   "crank": 25.0
+  },
+  {
+   "frame": 151,
+   "crank": 25.0
+  },
+  {
+   "frame": 152,
+   "crank": 25.0
+  },
+  {
+   "frame": 175,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 175,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 175,
+   "crank": 25.0
+  },
+  {
+   "frame": 176,
+   "crank": 25.0
+  },
+  {
+   "frame": 177,
+   "crank": 25.0
+  },
+  {
+   "frame": 200,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 200,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 200,
+   "crank": 25.0
+  },
+  {
+   "frame": 201,
+   "crank": 25.0
+  },
+  {
+   "frame": 202,
+   "crank": 25.0
+  },
+  {
+   "frame": 225,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 225,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 225,
+   "crank": 25.0
+  },
+  {
+   "frame": 226,
+   "crank": 25.0
+  },
+  {
+   "frame": 227,
+   "crank": 25.0
+  },
+  {
+   "frame": 250,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 250,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 250,
+   "crank": 25.0
+  },
+  {
+   "frame": 251,
+   "crank": 25.0
+  },
+  {
+   "frame": 252,
+   "crank": 25.0
+  },
+  {
+   "frame": 275,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 275,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 275,
+   "crank": 25.0
+  },
+  {
+   "frame": 276,
+   "crank": 25.0
+  },
+  {
+   "frame": 277,
+   "crank": 25.0
+  },
+  {
+   "frame": 300,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 300,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 300,
+   "crank": 25.0
+  },
+  {
+   "frame": 301,
+   "crank": 25.0
+  },
+  {
+   "frame": 302,
+   "crank": 25.0
+  },
+  {
+   "frame": 325,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 325,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 325,
+   "crank": 25.0
+  },
+  {
+   "frame": 326,
+   "crank": 25.0
+  },
+  {
+   "frame": 327,
+   "crank": 25.0
+  },
+  {
+   "frame": 350,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 350,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 350,
+   "crank": 25.0
+  },
+  {
+   "frame": 351,
+   "crank": 25.0
+  },
+  {
+   "frame": 352,
+   "crank": 25.0
+  },
+  {
+   "frame": 375,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 375,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 375,
+   "crank": 25.0
+  },
+  {
+   "frame": 376,
+   "crank": 25.0
+  },
+  {
+   "frame": 377,
+   "crank": 25.0
+  },
+  {
+   "frame": 400,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 400,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 400,
+   "crank": 25.0
+  },
+  {
+   "frame": 401,
+   "crank": 25.0
+  },
+  {
+   "frame": 402,
+   "crank": 25.0
+  },
+  {
+   "frame": 425,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 425,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 425,
+   "crank": 25.0
+  },
+  {
+   "frame": 426,
+   "crank": 25.0
+  },
+  {
+   "frame": 427,
+   "crank": 25.0
+  },
+  {
+   "frame": 450,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 450,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 450,
+   "crank": 25.0
+  },
+  {
+   "frame": 451,
+   "crank": 25.0
+  },
+  {
+   "frame": 452,
+   "crank": 25.0
+  },
+  {
+   "frame": 475,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 475,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 475,
+   "crank": 25.0
+  },
+  {
+   "frame": 476,
+   "crank": 25.0
+  },
+  {
+   "frame": 477,
+   "crank": 25.0
+  },
+  {
+   "frame": 500,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 500,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 500,
+   "crank": 25.0
+  },
+  {
+   "frame": 501,
+   "crank": 25.0
+  },
+  {
+   "frame": 502,
+   "crank": 25.0
+  },
+  {
+   "frame": 525,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 525,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 525,
+   "crank": 25.0
+  },
+  {
+   "frame": 526,
+   "crank": 25.0
+  },
+  {
+   "frame": 527,
+   "crank": 25.0
+  },
+  {
+   "frame": 550,
+   "release": [
+    "left"
+   ]
+  },
+  {
+   "frame": 550,
+   "press": [
+    "right"
+   ]
+  },
+  {
+   "frame": 550,
+   "crank": 25.0
+  },
+  {
+   "frame": 551,
+   "crank": 25.0
+  },
+  {
+   "frame": 552,
+   "crank": 25.0
+  },
+  {
+   "frame": 575,
+   "release": [
+    "right"
+   ]
+  },
+  {
+   "frame": 575,
+   "press": [
+    "left"
+   ]
+  },
+  {
+   "frame": 575,
+   "crank": 25.0
+  },
+  {
+   "frame": 576,
+   "crank": 25.0
+  },
+  {
+   "frame": 577,
+   "crank": 25.0
+  }
+ ]
+}

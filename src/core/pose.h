@@ -2,6 +2,7 @@
 #define POSE_H
 
 #include "dummy.h"
+#include "combat.h"
 #include "rig.h"
 #include "render_list.h"
 #include "camera.h"
@@ -12,10 +13,13 @@ typedef struct {
     float head_dx, head_dy, head_rot_deg, head_sy;   /* head offset in rig px */
     float arm_l_deg, arm_r_deg, elbow_l_deg, elbow_r_deg; /* 0 = hanging down, + = outward */
     DummyPart face;
+    bool teeth, stars;                               /* one-shot effect flags for draw_world */
 } DummyPose;
 
 /* Idle/walk/windup/punch/stagger poses. frame is the global frame counter. */
 void pose_for_state(const Dummy* d, int frame, DummyPose* out);
+/* Reaction pose (ReactionType in combat.h). t01 = 1 at the hit, easing to 0; blends toward the neutral walk pose. */
+void pose_for_reaction(ReactionType rx, float t01, const Dummy* d, DummyPose* out);
 void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRig* rig, const DummyPose* pose);
 /* World position of the open leaf's free edge (x, z). */
 void door_leaf_free_edge(const Door* door, float* x, float* z);

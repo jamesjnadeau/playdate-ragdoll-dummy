@@ -1,5 +1,6 @@
 #include "draw_world.h"
 #include "pose.h"
+#include "tuning.h"
 
 static bool drawable(const Dummy* d) {
     return d->alive && d->state != DST_RAGDOLL && d->state != DST_DEAD;
@@ -23,7 +24,8 @@ void draw_world(RenderList* rl, const Camera* cam, const Hallway* hall,
     for (i = 0; i < n; i++) {
         const Dummy* d = &dummies->d[order[i]];
         DummyPose pose;
-        pose_for_state(d, frame, &pose);
+        if (d->reaction_t > 0) pose_for_reaction((ReactionType)d->reaction, (float)d->reaction_t / (float)REACTION_FRAMES, d, &pose);
+        else pose_for_state(d, frame, &pose);
         draw_dummy(rl, cam, d, &rigs[d->size], &pose);
     }
 }

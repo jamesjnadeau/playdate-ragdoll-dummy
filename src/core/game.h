@@ -11,6 +11,8 @@
 #include "dummy.h"
 #include "player.h"
 #include "rig.h"
+#include "swing.h"
+#include "combat.h"
 
 typedef struct Game {
     Camera cam;
@@ -22,6 +24,11 @@ typedef struct Game {
     DummyRig rigs[DS_COUNT];
     int pending_damage;   /* damage dealt to the player, consumed by the next player_update */
     int frame;
+    Swing swing;
+    WeaponId weapon;
+    bool prev_docked;     /* crank dock state last frame, to swallow the undock jump */
+    HitResult hits[16];   /* this frame's hits, for effects and sounds */
+    int nhits;
 } Game;
 
 void game_init(Game* g, uint32_t seed);

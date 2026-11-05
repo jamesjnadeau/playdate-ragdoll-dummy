@@ -57,6 +57,7 @@ void dummy_update_all(DummyPool* p, float player_z, float player_x, int* out_dam
         Dummy* d = &p->d[i];
         float r;
         if (!d->alive) continue;
+        if (d->reaction_t > 0 && --d->reaction_t == 0) d->reaction = 0;
         r = dummy_radius(d->size);
         switch (d->state) {
         case DST_EMERGING:

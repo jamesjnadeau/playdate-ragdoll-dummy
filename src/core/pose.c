@@ -21,6 +21,7 @@ void pose_for_state(const Dummy* d, int frame, DummyPose* o) {
     o->arm_l_deg = ARM_REST_DEG; o->arm_r_deg = ARM_REST_DEG;
     o->elbow_l_deg = 0.0f; o->elbow_r_deg = 0.0f;
     o->face = PART_FACE_MEAN;
+    o->teeth = false; o->stars = false;
 
     switch (d->state) {
     case DST_EMERGING: {
@@ -60,6 +61,88 @@ void pose_for_state(const Dummy* d, int frame, DummyPose* o) {
     case DST_DEAD:
         break;
     }
+}
+
+#define RX_LEAN_DEG 20.0f
+#define RX_FLING_NEAR_DEG 145.0f
+#define RX_FLING_FAR_DEG (-30.0f)
+#define RX_UP_HEAD_DY (-18.0f)
+#define RX_UP_HEAD_ROT (-17.0f)
+#define RX_UP_HEAD_SY 0.82f
+#define RX_UP_LEAN (-6.0f)
+#define RX_UP_ARMS 130.0f
+#define RX_DOWN_SX 1.28f
+#define RX_DOWN_SY 0.72f
+#define RX_DOWN_ARMS 75.0f
+#define RX_DOWN_ELBOW (-35.0f)
+
+static float rx_lerp(float a, float b, float t) { return a + (b - a) * t; }
+
+/* Peak pose for a reaction. */
+static void reaction_peak(ReactionType rx, const DummyPose* neutral, DummyPose* p) {
+    int side = 0, vert = 0;   /* side: -1 hit from left, +1 from right; vert: -1 up, +1 down */
+    *p = *neutral;
+    switch (rx) {
+    case RX_FROM_LEFT: side = -1; break;
+    case RX_FROM_RIGHT: side = 1; break;
+    case RX_UPWARD: vert = -1; break;
+    case RX_DOWNWARD: vert = 1; break;
+    case RX_LEFT_UP: side = -1; vert = -1; break;
+    case RX_LEFT_DOWN: side = -1; vert = 1; break;
+    case RX_RIGHT_UP: side = 1; vert = -1; break;
+    case RX_RIGHT_DOWN: side = 1; vert = 1; break;
+    default: return;
+    }
+    if (side != 0) {
+        float s = (float)(-side);   /* hit from left leans screen-right (+) */
+        p->lean_deg = RX_LEAN_DEG * s;
+        p->arm_l_deg = s > 0.0f ? RX_FLING_NEAR_DEG : RX_FLING_FAR_DEG;
+        p->arm_r_deg = s > 0.0f ? RX_FLING_FAR_DEG : RX_FLING_NEAR_DEG;
+        p->face = PART_FACE_HURT;
+    }
+    if (vert < 0) {
+        p->head_dy = RX_UP_HEAD_DY; p->head_rot_deg = RX_UP_HEAD_ROT; p->head_sy = RX_UP_HEAD_SY;
+        if (side == 0) {
+            p->lean_deg = RX_UP_LEAN;
+            p->arm_l_deg = RX_UP_ARMS; p->arm_r_deg = RX_UP_ARMS;
+        }
+        p->face = PART_FACE_WHACK;
+        p->teeth = true;
+    } else if (vert > 0) {
+        p->sx = RX_DOWN_SX; p->sy = RX_DOWN_SY;
+        if (side == 0) {
+            p->arm_l_deg = RX_DOWN_ARMS; p->arm_r_deg = RX_DOWN_ARMS;
+            p->elbow_l_deg = RX_DOWN_ELBOW; p->elbow_r_deg = RX_DOWN_ELBOW;
+        }
+        p->face = PART_FACE_SQUISH;
+        p->stars = true;
+    }
+}
+
+void pose_for_reaction(ReactionType rx, float t01, const Dummy* d, DummyPose* out) {
+    Dummy walker = *d;
+    DummyPose n, p;
+    float e;
+    walker.state = DST_WALK; walker.timer = 0;
+    pose_for_state(&walker, 0, &n);
+    reaction_peak(rx, &n, &p);
+    t01 = clampf(t01, 0.0f, 1.0f);
+    e = t01 * t01;
+    out->lean_deg = rx_lerp(n.lean_deg, p.lean_deg, e);
+    out->sx = rx_lerp(n.sx, p.sx, e);
+    out->sy = rx_lerp(n.sy, p.sy, e);
+    out->lift_m = rx_lerp(n.lift_m, p.lift_m, e);
+    out->head_dx = rx_lerp(n.head_dx, p.head_dx, e);
+    out->head_dy = rx_lerp(n.head_dy, p.head_dy, e);
+    out->head_rot_deg = rx_lerp(n.head_rot_deg, p.head_rot_deg, e);
+    out->head_sy = rx_lerp(n.head_sy, p.head_sy, e);
+    out->arm_l_deg = rx_lerp(n.arm_l_deg, p.arm_l_deg, e);
+    out->arm_r_deg = rx_lerp(n.arm_r_deg, p.arm_r_deg, e);
+    out->elbow_l_deg = rx_lerp(n.elbow_l_deg, p.elbow_l_deg, e);
+    out->elbow_r_deg = rx_lerp(n.elbow_r_deg, p.elbow_r_deg, e);
+    out->face = e > 0.05f ? p.face : n.face;
+    out->teeth = p.teeth && t01 >= 1.0f;     /* one-shot on the hit frame */
+    out->stars = p.stars && e > 0.1f;
 }
 
 /* Rotates v clockwise on screen (y down) by deg. */

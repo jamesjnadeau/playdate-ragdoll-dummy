@@ -12,6 +12,7 @@ typedef struct {
     float x, z, hp; int door;          /* door index it came from, -1 none */
     int reaction; int reaction_t;      /* ReactionType (Task 11), frames left */
     int ragdoll;                       /* ragdoll index once knocked out, -1 */
+    Vec3 launch;                       /* knockout launch vector, consumed by the ragdoll spawn (Task 13) */
 } Dummy;
 typedef struct { Dummy d[MAX_DUMMIES]; } DummyPool;
 

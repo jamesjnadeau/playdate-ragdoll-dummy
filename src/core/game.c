@@ -11,6 +11,7 @@ void game_init(Game* g, uint32_t seed) {
     g->cam.pitch_px = 0.0f;
     hallway_init(&g->hall, &g->rng);
     player_init(&g->player);
+    g->weapon = W_BAT;
     for (i = 0; i < DS_COUNT; i++) rig_default((DummySize)i, &g->rigs[i]);
 }
 
@@ -66,6 +67,18 @@ void game_update(Game* g, const GameInput* in) {
         int dmg = 0;
         dummy_update_all(&g->dummies, g->player.z, g->player.x, &dmg);
         g->pending_damage += dmg;
+    }
+
+    /* Swing. The crank jump on the frame it leaves the dock must not count as a swing. */
+    g->nhits = 0;
+    {
+        GameInput si = *in;
+        const WeaponDef* w = weapon_def(g->weapon);
+        if (g->prev_docked && !in->crank_docked) si.crank_delta = 0.0f;
+        g->prev_docked = in->crank_docked;
+        if (swing_update(&g->swing, &si, w) == SWE_IMPACT)
+            g->nhits = combat_resolve(&g->swing, w, g->cam.aim, g->player.z, &g->dummies,
+                                      g->hits, (int)(sizeof(g->hits) / sizeof(g->hits[0])));
     }
 }
 
