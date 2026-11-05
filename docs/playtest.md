@@ -49,6 +49,7 @@ A hit with enough momentum goes through the dummy and carries on, a little slowe
 6. Are the dummy reactions readable?
 7. Is the ragdoll too bouncy?
 8. Is the difficulty curve right: too fast, too slow, too crowded?
+9. The heavy hit sound is now sledgehammer-only: it plays when the weapon's mass is at least HIT_HEAVY_MASS (only the sledge) and the hit's momentum is at least HIT_HEAVY_MOMENTUM. This is a deliberate change: before the crank weapon, the frying pan and a fast bat hit also played the heavy sound. Every pan and bat hit now sounds light. Do you miss the heavy sound on the pan or a fast bat?
 
 Also tell me about anything that stutters, anything that looks wrong, and any crash.
 
@@ -64,7 +65,7 @@ All gameplay numbers are in `src/core/tuning.h`, except the weapon table in `src
 | MOMENTUM_REF | 80 | Momentum for a full-size hit reaction (a bat at 20 deg/frame hitting near its tip is about 80) |
 | DAMAGE_PER_MOMENTUM | 1/80 | Damage = momentum × power × this (× HEAD_MULT on the head) |
 | HEAD_MULT | 1.5 | Head hit damage multiplier |
-| HIT_HEAVY_MASS / HIT_HEAVY_MOMENTUM | 2.0 / 40 | A hit plays the heavy sound when the weapon is at least this heavy (only the sledge) and the contact momentum is at least this |
+| HIT_HEAVY_MASS / HIT_HEAVY_MOMENTUM | 2.0 / 40 | A hit plays the heavy sound when the weapon is at least this heavy (only the sledge) and the contact momentum is at least this. The pan and a fast bat used to sound heavy and no longer do (feel question 9) |
 | WEAPON_BOUNCE_RESTITUTION | 0.4 | Share of the speed a bounced weapon flies back with |
 | WEAPON_BOUNCE_DAMP | 0.85 | Loose weapon speed kept per frame |
 | WEAPON_RECONNECT_DEG | 3 | How close the crank must come to a loose weapon to pick it up (crossing it also counts) |
