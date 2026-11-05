@@ -624,6 +624,37 @@ static void test_accepting_offer_resets_weapon(void) {
     CHECK_EQ_INT(g_.nhits, 0);
 }
 
+/* Cranking while the offer is up never reaches the weapon; keeping the current weapon (B) must still leave
+   "crank up = weapon upright", like taking the offer does. */
+static void test_declining_offer_resyncs_crank(void) {
+    GameInput in;
+    int i;
+    memset(&in, 0, sizeof(in));
+    start(3);
+    dock();
+    in.crank_angle = 0.0f;
+    game_update(&g_, &in);
+    CHECK(g_.wp.live);
+    g_.offer = W_SLEDGE;
+    g_.mode = MODE_OFFER;
+    in.crank_delta = 30.0f;
+    for (i = 0; i < 3; i++) { in.crank_angle += in.crank_delta; game_update(&g_, &in); }   /* to 90 */
+    CHECK_EQ_INT(g_.mode, MODE_OFFER);
+    in.crank_delta = 0.0f;
+    in.pressed = BTN_B;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_PLAY);
+    CHECK_EQ_INT(g_.weapon, W_BAT);
+    in.pressed = 0;
+    in.crank_delta = 10.0f;
+    in.crank_angle += in.crank_delta;   /* 100 */
+    game_update(&g_, &in);
+    CHECK(!g_.wp.swept);                /* the re-sync is not a sweep */
+    for (i = 0; i < 40; i++) { in.crank_delta = 0.0f; game_update(&g_, &in); }
+    CHECK_NEAR(weapon_wrap_deg(g_.wp.target), in.crank_angle - CRANK_ZERO_DEG, 0.01f);
+    CHECK_NEAR(weapon_wrap_deg(g_.wp.angle), in.crank_angle - CRANK_ZERO_DEG, 0.5f);
+}
+
 static void test_undock_frame_never_hits(void) {
     GameInput in;
     int i, d;
@@ -883,6 +914,7 @@ void suite_game_flow(void) {
     test_sound_events();
     test_crank_swing_hits_dummy();
     test_accepting_offer_resets_weapon();
+    test_declining_offer_resyncs_crank();
     test_undock_frame_never_hits();
     test_sound_hit_light_and_heavy();
     test_sound_grunt_on_knockout_and_bag_scored_at_once();

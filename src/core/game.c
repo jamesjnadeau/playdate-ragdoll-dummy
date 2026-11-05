@@ -224,6 +224,11 @@ static void offer_update(Game* g, const GameInput* in) {
     if (in->pressed & BTN_A) {
         g->weapon = g->offer;
         memset(&g->wp, 0, sizeof(g->wp));   /* a swing in progress belonged to the old weapon */
+    } else {
+        /* The crank turned while paused and the weapon never saw it: re-sync to the crank next frame, as on
+           undock (no sweep), and forget the paused swing's struck dummies. */
+        g->wp.live = false;
+        g->wp.struck = 0;
     }
     g->pickup_z = -1.0f;
     g->mode = MODE_PLAY;
