@@ -266,7 +266,6 @@ static void exec_bitmap(PlaydateAPI* pd, const RenderCmd* c) {
 void pd_render_execute(PlaydateAPI* pd, const RenderList* rl) {
     const struct playdate_graphics* gfx = pd->graphics;
     g_pd = pd;
-    { static int fr; pd->system->logToConsole("F%d %d", fr++, g_made); }
     g_made = 0;
     if (g_backoff > 0) g_backoff--;
     if (!g_pat_ready) init_patterns();
@@ -322,9 +321,19 @@ void pd_render_execute(PlaydateAPI* pd, const RenderList* rl) {
  * the few angles poses produce (leaning a little either way); the held weapons at every angle; and the stuffing
  * scraps. Scale buckets (both axes equal) cover dummies about 1.5 to 6 m away, likeliest first. */
 #if ROT_PREWARM
-static int prewarm_one(PlaydateAPI* pd, int image, int astep, int b, int* count) {
+/* Makes one entry (touch == 0), or moves an existing one to the most-recently-used end (touch == 1).
+   Returns 0 when pre-warming should stop. */
+static int prewarm_one(PlaydateAPI* pd, int image, int astep, int b, int touch, int* count) {
     int saved = g_made, idx;
     if (image < 0 || image >= g_image_count || !g_images[image]) return 1;
+    if (touch) {
+        for (idx = g_head[rot_hash(image, astep, b, b)]; idx >= 0; idx = g_rot[idx].next) {
+            const RotEntry* t = &g_rot[idx];
+            if (t->image == image && t->astep == astep && t->bx == b && t->by == b) break;
+        }
+        if (idx >= 0 && g_lru_head != idx) { lru_unlink(idx); lru_push_front(idx); }
+        return 1;
+    }
     if (g_free < 0 || g_rot_bytes >= ROT_PREWARM_BYTES) return 0;   /* full: stop, never evict */
     g_made = 0;                    /* pre-warming does not count against the per-frame make cap */
     idx = rot_make(pd, g_images[image], image, astep, b, b);
@@ -337,7 +346,7 @@ static int prewarm_one(PlaydateAPI* pd, int image, int astep, int b, int* count)
 
 void pd_render_prewarm(PlaydateAPI* pd) {
 #if ROT_PREWARM
-    static const int k_buckets[] = { 10, 9, 11, 8, 12, 13 };   /* scale 1, 0.7, 1.4, 0.5, 2, 2.8 */
+    static const int k_buckets[] = { 10, 9, 11, 8, 12, 13 };   /* scale 1, 0.7, 1.4, 0.5, 2, 2.8, likeliest first */
     static const int k_limbs[] = { PART_ARM_UPPER, PART_ARM_LOWER, PART_FIST };
     static const int k_body[] = { PART_BASE, PART_BODY, PART_HEAD, PART_FACE_MEAN, PART_FACE_KO, PART_FACE_SQUISH };
     static const int k_small_steps[] = { 0, 31, 1, 30, 2, 29, 3 };
@@ -345,23 +354,34 @@ void pd_render_prewarm(PlaydateAPI* pd) {
     int count = 0, bytes0 = g_rot_bytes, ok = 1;
     g_pd = pd;
     if (!g_images) return;
-    /* scraps first: they are tiny, and a burst needs all four variants at every angle at once */
-    for (int b = 6; b <= 12 && ok; b++)
-        for (int a = 0; a < ROT_STEPS && ok; a++)
-            for (int v = 0; v < STUFF_SCRAP_VARIANTS && ok; v++) ok = prewarm_one(pd, IMG_SCRAP0 + v, a, b, &count);
-    for (unsigned bi = 0; bi < sizeof(k_buckets) / sizeof(k_buckets[0]) && ok; bi++) {
-        int b = k_buckets[bi];
-        for (int a = 0; a < ROT_STEPS && ok; a++)
-            for (int s = 0; s < DS_COUNT && ok; s++)
-                for (unsigned p = 0; p < sizeof(k_limbs) / sizeof(k_limbs[0]) && ok; p++)
-                    ok = prewarm_one(pd, img_dummy((DummySize)s, (DummyPart)k_limbs[p]), a, b, &count);
-        for (unsigned a = 0; a < sizeof(k_small_steps) / sizeof(k_small_steps[0]) && ok; a++)
-            for (int s = 0; s < DS_COUNT && ok; s++)
-                for (unsigned p = 0; p < sizeof(k_body) / sizeof(k_body[0]) && ok; p++)
-                    ok = prewarm_one(pd, img_dummy((DummySize)s, (DummyPart)k_body[p]), k_small_steps[a], b, &count);
+    /* Pass 0 makes entries in priority order until the budget is spent. Pass 1 re-touches them in the opposite
+       order, so the likeliest ones end up most recently used and are evicted last. */
+    for (int pass = 0; pass < 2; pass++) {
+        if (pass == 1 && count == 0) break;
+        ok = 1;
+        /* scraps: tiny, and a burst needs all four variants at every angle at once */
+        for (int b = 6; b <= 12 && ok; b++)
+            for (int a = 0; a < ROT_STEPS && ok; a++)
+                for (int v = 0; v < STUFF_SCRAP_VARIANTS && ok; v++)
+                    ok = prewarm_one(pd, IMG_SCRAP0 + v, a, b, pass, &count);
+        if (pass == 1)
+            for (int a = 0; a < ROT_STEPS; a++)
+                for (int w = 0; w < WEAPON_COUNT; w++) prewarm_one(pd, IMG_WEAPON_HELD0 + w, a, 10, 1, &count);
+        for (int n = 0; n < (int)(sizeof(k_buckets) / sizeof(k_buckets[0])) && ok; n++) {
+            int b = k_buckets[pass ? (int)(sizeof(k_buckets) / sizeof(k_buckets[0])) - 1 - n : n];
+            for (int a = 0; a < ROT_STEPS && ok; a++)
+                for (int s = 0; s < DS_COUNT && ok; s++)
+                    for (unsigned p = 0; p < sizeof(k_limbs) / sizeof(k_limbs[0]) && ok; p++)
+                        ok = prewarm_one(pd, img_dummy((DummySize)s, (DummyPart)k_limbs[p]), a, b, pass, &count);
+            for (unsigned a = 0; a < sizeof(k_small_steps) / sizeof(k_small_steps[0]) && ok; a++)
+                for (int s = 0; s < DS_COUNT && ok; s++)
+                    for (unsigned p = 0; p < sizeof(k_body) / sizeof(k_body[0]) && ok; p++)
+                        ok = prewarm_one(pd, img_dummy((DummySize)s, (DummyPart)k_body[p]), k_small_steps[a], b, pass, &count);
+        }
+        if (pass == 0)
+            for (int a = 0; a < ROT_STEPS && ok; a++)
+                for (int w = 0; w < WEAPON_COUNT && ok; w++) ok = prewarm_one(pd, IMG_WEAPON_HELD0 + w, a, 10, 0, &count);
     }
-    for (int a = 0; a < ROT_STEPS && ok; a++)
-        for (int w = 0; w < WEAPON_COUNT && ok; w++) ok = prewarm_one(pd, IMG_WEAPON_HELD0 + w, a, 10, &count);
     pd->system->logToConsole("rotation cache pre-warmed: %d images, %d KB, %u ms", count, (g_rot_bytes - bytes0) / 1024,
                              pd->system->getCurrentTimeMilliseconds() - t0);
 #else
