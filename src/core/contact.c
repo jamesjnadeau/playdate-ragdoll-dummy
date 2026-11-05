@@ -12,7 +12,10 @@
 typedef char contact_inside_fits_pool[(MAX_DUMMIES <= 16) ? 1 : -1];
 
 typedef struct { bool ok; ScreenBox head, body; } Candidate;
-typedef struct { int dummy, k; bool head; float sx, sy, r; } Entry;
+typedef struct { bool head; float sx, sy, r; } Contact;
+/* pass: the head's first overlap from the entry on, else the body at entry (a hit that carries on).
+   at_entry: the head if it overlaps at the entry sample, else the body there (a hit that bounces). */
+typedef struct { int dummy, k; Contact pass, at_entry; } Entry;
 
 void weapon_segment(const Weapon* wp, const WeaponRig* wr, float angle_deg,
                     float* gx, float* gy, float* tx, float* ty) {
@@ -127,6 +130,14 @@ static uint16_t inside_mask(const Weapon* wp, const WeaponRig* wr, const Candida
     return m;
 }
 
+static void set_contact(const Weapon* wp, Contact* c, bool head, float x, float y) {
+    float dx = x - weapon_pivot_x(wp), dy = y - WEAPON_PIVOT_Y;
+    c->head = head;
+    c->sx = x;
+    c->sy = y;
+    c->r = sqrtf(dx * dx + dy * dy);
+}
+
 /* Finds dummy i's entry along the samples; false if it is not entered this frame. */
 static bool find_entry(const Weapon* wp, const WeaponRig* wr, const Candidate* c, int i, int n, Entry* e) {
     float a0 = wp->prev_angle, da = wp->angle - wp->prev_angle, x = 0.0f, y = 0.0f;
@@ -137,32 +148,37 @@ static bool find_entry(const Weapon* wp, const WeaponRig* wr, const Candidate* c
     if (entry < 0) return false;
     e->dummy = i;
     e->k = entry;
-    e->head = false;
-    for (k = entry; k <= n; k++) {
+    if (overlap(wp, wr, a0 + da * (float)entry / (float)n, &c->head, &x, &y)) {
+        set_contact(wp, &e->at_entry, true, x, y);
+        e->pass = e->at_entry;
+        return true;
+    }
+    overlap(wp, wr, a0 + da * (float)entry / (float)n, &c->body, &x, &y);
+    set_contact(wp, &e->at_entry, false, x, y);
+    e->pass = e->at_entry;
+    for (k = entry + 1; k <= n; k++) {
         if (overlap(wp, wr, a0 + da * (float)k / (float)n, &c->head, &x, &y)) {
-            e->head = true;
+            set_contact(wp, &e->pass, true, x, y);
             break;
         }
-    }
-    if (!e->head) overlap(wp, wr, a0 + da * (float)entry / (float)n, &c->body, &x, &y);
-    e->sx = x;
-    e->sy = y;
-    {
-        float dx = x - weapon_pivot_x(wp), dy = y - WEAPON_PIVOT_Y;
-        e->r = sqrtf(dx * dx + dy * dy);
     }
     return true;
 }
 
-static void apply_hit(const WeaponDef* w, Dummy* d, const Entry* e, float a_k, float vel, float m, HitResult* h) {
+static float hit_damage(const WeaponDef* w, const Contact* c, float m) {
+    return m * w->power * (c->head ? HEAD_MULT : 1.0f) * DAMAGE_PER_MOMENTUM;
+}
+
+static void apply_hit(const WeaponDef* w, Dummy* d, int dummy, const Contact* c, float a_k, float vel, float m,
+                      HitResult* h) {
     float k = clampf(m / MOMENTUM_REF, HIT_SCALE_MIN, HIT_SCALE_MAX);
-    h->dummy = e->dummy;
-    h->head = e->head;
-    h->damage = m * w->power * (e->head ? HEAD_MULT : 1.0f) * DAMAGE_PER_MOMENTUM;
+    h->dummy = dummy;
+    h->head = c->head;
+    h->damage = hit_damage(w, c, m);
     h->rx = contact_reaction(a_k, vel);
     h->launch.x = 0.0f; h->launch.y = 0.0f; h->launch.z = 0.0f;
-    h->sx = e->sx;
-    h->sy = e->sy;
+    h->sx = c->sx;
+    h->sy = c->sy;
 
     d->hp -= h->damage;
     d->reaction = (int)h->rx;
@@ -210,10 +226,16 @@ int contact_sweep(Weapon* wp, const WeaponDef* w, const WeaponRig* wr, const Cam
         const Entry* e = &ent[i];
         Dummy* d = &pool->d[e->dummy];
         float a_k = wp->prev_angle + da * (float)e->k / (float)n;
-        float m = contact_momentum(w, wp->vel, e->r);
+        const Contact* c = &e->pass;
+        float m = contact_momentum(w, wp->vel, c->r);
         float R = dummy_resist(d->size);
         HitResult* h = &out[nh++];
-        apply_hit(w, d, e, a_k, wp->vel, m, h);
+        /* A hit that will bounce stops at the entry sample, so it scores only what the weapon reached there. */
+        if (m < R && d->hp - hit_damage(w, c, m) > 0.0f) {
+            c = &e->at_entry;
+            m = contact_momentum(w, wp->vel, c->r);
+        }
+        apply_hit(w, d, e->dummy, c, a_k, wp->vel, m, h);
         if (m >= R || h->knockout) {
             float keep = m > 0.0f ? 1.0f - R / m : 0.0f;
             wp->vel *= keep > 0.0f ? keep : 0.0f;

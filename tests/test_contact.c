@@ -252,6 +252,30 @@ static void test_head_anywhere_in_pass(void) {
                0.001f);
 }
 
+/* A hit that bounces stops at the entry sample, so a head the weapon only reaches later does not count. */
+static void test_bounce_in_head_scene_scores_body(void) {
+    DummyPool p; Weapon wp; HitResult h[4]; float a, a_k, dx, dy;
+    ScreenBox hb, bb;
+    const WeaponDef* w = weapon_def(W_CHICKEN);
+    Camera cam = mk_cam(PITCH_HIGH);
+    memset(&p, 0, sizeof p);
+    memset(&wp, 0, sizeof wp);
+    put(&p, DS_SMALL, 0.0f, DZ_HIGH);
+    boxes_of(&cam, &p.d[0], &hb, &bb);
+    a = aim_at(&wp, &g_wr[W_CHICKEN], &hb);
+    set_sweep(&wp, a - 30.0f, a + 10.0f, 20.0f);
+    CHECK_EQ_INT(sweep(&wp, W_CHICKEN, &cam, &p, h, 4), 1);
+    CHECK(!wp.attached);                       /* it bounced */
+    a_k = wp.angle;                            /* detached at the entry angle */
+    CHECK(a_k < a);                            /* entered the body before reaching the head */
+    CHECK(!h[0].head);
+    CHECK(in_box(h[0].sx, h[0].sy, &bb));
+    dx = h[0].sx - weapon_pivot_x(&wp);
+    dy = h[0].sy - WEAPON_PIVOT_Y;
+    CHECK_NEAR(h[0].damage, contact_momentum(w, 20.0f, sqrtf(dx * dx + dy * dy)) * w->power * DAMAGE_PER_MOMENTUM,
+               0.001f);
+}
+
 static void test_one_hit_per_pass(void) {
     DummyPool p; Weapon wp; HitResult h[4]; float a;
     int total = 0;
@@ -313,8 +337,10 @@ static void test_max_out_respected(void) {
     al = aim_body(&cam, &p.d[l], &wp, &g_wr[W_SLEDGE]);
     ar = aim_body(&cam, &p.d[r], &wp, &g_wr[W_SLEDGE]);
     set_sweep(&wp, al - 30.0f, ar + 10.0f, 30.0f);
+    h[1].dummy = -7;
     CHECK_EQ_INT(sweep(&wp, W_SLEDGE, &cam, &p, h, 1), 1);
     CHECK_EQ_INT(h[0].dummy, l);
+    CHECK_EQ_INT(h[1].dummy, -7);              /* nothing written past max_out */
     for (i = 0; i < 3; i++) {
         if (i == l) continue;
         CHECK_NEAR(p.d[i].hp, p.d[i].max_hp, 0.0001f);
@@ -344,6 +370,7 @@ void suite_contact(void) {
     test_line_of_dummies_saps_momentum();
     test_ko_counts_as_through();
     test_head_anywhere_in_pass();
+    test_bounce_in_head_scene_scores_body();
     test_one_hit_per_pass();
     test_still_weapon_never_hits();
     test_max_out_respected();
