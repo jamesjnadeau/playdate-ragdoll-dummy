@@ -3,6 +3,7 @@
 #include "pose.h"
 #include "draw_world.h"
 #include "tuning.h"
+#include "game.h"
 
 static RenderList g_rl;
 
@@ -199,6 +200,245 @@ static void test_hallway_clips_near(void) {
     CHECK_EQ_INT(g_rl.dropped, 0);
 }
 
+/* ---- weapon sweep, impacts, hurt shake ---- */
+
+static WeaponRig g_wr;
+
+static const RenderCmd* only_bitmap(const RenderList* rl, int* count) {
+    const RenderCmd* found = NULL;
+    *count = 0;
+    for (int i = 0; i < rl->n; i++)
+        if (rl->cmd[i].type == RC_BITMAP) { found = &rl->cmd[i]; (*count)++; }
+    return found;
+}
+
+static float weapon_angle(const Swing* s) {
+    int n;
+    const RenderCmd* c;
+    rl_clear(&g_rl);
+    draw_weapon(&g_rl, s, &g_wr, IMG_WEAPON_HELD0 + W_BAT);
+    c = only_bitmap(&g_rl, &n);
+    CHECK_EQ_INT(n, 1);
+    return c ? c->angle_deg : 9999.0f;
+}
+
+static void test_weapon_rest_pose(void) {
+    Swing s;
+    const RenderCmd* c;
+    int n;
+    memset(&s, 0, sizeof(s));
+    weapon_rig_default(W_BAT, &g_wr);
+    g_wr.w = 60; g_wr.h = 180;
+    s.phase = SWS_READY;
+    rl_clear(&g_rl);
+    draw_weapon(&g_rl, &s, &g_wr, IMG_WEAPON_HELD0 + W_BAT);
+    c = only_bitmap(&g_rl, &n);
+    CHECK_EQ_INT(n, 1);
+    CHECK_EQ_INT(g_rl.n, 1);     /* no speed lines and no hands at rest */
+    CHECK_NEAR(c->angle_deg, -53.0f, 0.001f);
+    CHECK_NEAR(c->x, 352.0f, 0.001f);
+    CHECK_NEAR(c->y, 262.0f, 0.001f);
+    CHECK_NEAR(c->cx, 30.0f / 60.0f, 0.001f);
+    CHECK_NEAR(c->cy, 171.0f / 180.0f, 0.001f);
+}
+
+static void test_weapon_sweep_left_to_right(void) {
+    Swing s;
+    memset(&s, 0, sizeof(s));
+    weapon_rig_default(W_BAT, &g_wr);
+    g_wr.w = 60; g_wr.h = 180;
+    s.phase = SWS_SWEEP; s.side = SIDE_LEFT; s.vert = VERT_DOWN;
+    s.sweep01 = 0.0f;
+    CHECK_NEAR(weapon_angle(&s), -70.0f, 0.001f);
+    s.sweep01 = 1.0f;
+    CHECK_NEAR(weapon_angle(&s), 70.0f, 0.001f);
+    s.side = SIDE_RIGHT;
+    CHECK_NEAR(weapon_angle(&s), -70.0f, 0.001f);
+    s.sweep01 = 0.0f;
+    CHECK_NEAR(weapon_angle(&s), 70.0f, 0.001f);
+}
+
+static void test_weapon_sweep_up(void) {
+    Swing s;
+    const RenderCmd* c;
+    int n, lines = 0;
+    memset(&s, 0, sizeof(s));
+    weapon_rig_default(W_BAT, &g_wr);
+    g_wr.w = 60; g_wr.h = 180;
+    s.phase = SWS_SWEEP; s.side = SIDE_CENTER; s.vert = VERT_UP; s.sweep01 = 0.5f;
+    CHECK_NEAR(weapon_angle(&s), 90.0f, 0.001f);
+    c = only_bitmap(&g_rl, &n);
+    /* grip rides the circle around (200,300): at 90 deg it is level with the pivot, to the right */
+    CHECK_NEAR(c->y, 300.0f, 0.5f);
+    CHECK(c->x > 300.0f);
+    for (int i = 0; i < g_rl.n; i++) if (g_rl.cmd[i].type == RC_LINE) lines++;
+    CHECK_EQ_INT(lines, 3);
+    s.vert = VERT_DOWN; s.sweep01 = 0.0f;
+    CHECK_NEAR(weapon_angle(&s), 20.0f, 0.001f);
+    s.sweep01 = 1.0f;
+    CHECK_NEAR(weapon_angle(&s), 160.0f, 0.001f);
+    s.vert = VERT_UP; s.sweep01 = 0.0f;
+    CHECK_NEAR(weapon_angle(&s), 160.0f, 0.001f);
+    s.sweep01 = 1.0f;
+    CHECK_NEAR(weapon_angle(&s), 20.0f, 0.001f);
+}
+
+static void test_weapon_crosses_screen_centre(void) {
+    Swing s;
+    const RenderCmd* c;
+    int n;
+    memset(&s, 0, sizeof(s));
+    weapon_rig_default(W_BAT, &g_wr);
+    g_wr.w = 60; g_wr.h = 180;
+    s.phase = SWS_SWEEP; s.side = SIDE_LEFT; s.vert = VERT_DOWN; s.sweep01 = 0.5f;
+    weapon_angle(&s);
+    c = only_bitmap(&g_rl, &n);
+    CHECK_NEAR(c->x, 200.0f, 0.5f);
+    CHECK(c->y > 100.0f && c->y < 200.0f);
+}
+
+static void test_impact_star(void) {
+    int polys = 0;
+    rl_clear(&g_rl);
+    draw_impact(&g_rl, 200.0f, 100.0f, 20.0f);
+    CHECK(g_rl.n >= 14);
+    CHECK_EQ_INT(g_rl.dropped, 0);
+    for (int i = 0; i < g_rl.n; i++) {
+        const RenderCmd* c = &g_rl.cmd[i];
+        CHECK_EQ_INT(c->type, RC_POLY);
+        polys++;
+    }
+    CHECK(polys == g_rl.n);
+    CHECK_EQ_INT(g_rl.cmd[0].pattern, PAT_BLACK);              /* 2 px outline first */
+    CHECK_EQ_INT(g_rl.cmd[g_rl.n - 1].pattern, PAT_WHITE);     /* white star on top */
+}
+
+static void test_rl_offset(void) {
+    RenderList* rl = &g_rl;
+    float xy[6] = { 10, 10, 20, 10, 15, 20 };
+    rl_clear(rl);
+    rl_poly(rl, xy, 3, PAT_BLACK);
+    rl_line(rl, 0, 0, 5, 5, 1, PAT_BLACK);
+    rl_rect(rl, 1, 2, 3, 4, PAT_WHITE, false);
+    rl_bitmap(rl, 0, 50, 60, 0, 0.5f, 0.5f, 1, 1, false);
+    rl_offset(rl, 0, 3, -2);
+    CHECK_EQ_INT(rl->cmd[0].pts[0], 13);
+    CHECK_EQ_INT(rl->cmd[0].pts[1], 8);
+    CHECK_EQ_INT(rl->cmd[1].pts[2], 8);
+    CHECK_EQ_INT(rl->cmd[1].pts[3], 3);
+    CHECK_NEAR(rl->cmd[2].x, 4.0f, 0.001f);
+    CHECK_NEAR(rl->cmd[3].y, 58.0f, 0.001f);
+    rl_offset(rl, 3, 1, 1);      /* only from index 3 */
+    CHECK_EQ_INT(rl->cmd[0].pts[0], 13);
+    CHECK_NEAR(rl->cmd[3].x, 54.0f, 0.001f);
+}
+
+static GameInput no_input(void) {
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    return in;
+}
+
+static void test_hurt_shake(void) {
+    static Game g;
+    GameInput in = no_input();
+    game_init(&g, 1);
+    game_render(&g);
+    CHECK(!g.rl.invert);
+    g.pending_damage = 1;
+    game_update(&g, &in);
+    game_render(&g);
+    CHECK(g.rl.invert);                       /* the hurt frame inverts */
+    for (int f = 0; f < HURT_SHAKE_FRAMES + 2; f++) {
+        game_update(&g, &in);
+        game_render(&g);
+        CHECK(!g.rl.invert);                  /* ... and only that one frame */
+    }
+}
+
+static void test_hurt_shake_offsets_world_only(void) {
+    static Game a, b;
+    GameInput in = no_input();
+    const RenderCmd *wa = NULL, *wb = NULL;
+    game_init(&a, 1); game_init(&b, 1);
+    game_update(&a, &in); game_update(&b, &in);
+    a.pending_damage = 1;
+    game_update(&a, &in); game_update(&b, &in);
+    game_update(&a, &in); game_update(&b, &in);    /* a: shaking (not the invert frame), b: calm */
+    game_render(&a); game_render(&b);
+    CHECK_EQ_INT(a.rl.n, b.rl.n);
+    for (int i = 0; i < a.rl.n; i++) {
+        const RenderCmd *ca = &a.rl.cmd[i], *cb = &b.rl.cmd[i];
+        if (ca->type == RC_BITMAP && ca->image == IMG_WEAPON_HELD0 + W_BAT) { wa = ca; wb = cb; }
+    }
+    CHECK(wa && wb);
+    if (wa && wb) { CHECK_NEAR(wa->x, wb->x, 0.001f); CHECK_NEAR(wa->y, wb->y, 0.001f); }
+    /* hallway poly 0 moved by a non-zero offset within +-3 px */
+    {
+        int dx = a.rl.cmd[0].pts[0] - b.rl.cmd[0].pts[0], dy = a.rl.cmd[0].pts[1] - b.rl.cmd[0].pts[1];
+        CHECK(dx >= -HURT_SHAKE_PX && dx <= HURT_SHAKE_PX);
+        CHECK(dy >= -HURT_SHAKE_PX && dy <= HURT_SHAKE_PX);
+        CHECK(dx != 0 || dy != 0);
+    }
+}
+
+static int count_polys_white(const RenderList* rl) {
+    int n = 0;
+    for (int i = 0; i < rl->n; i++) if (rl->cmd[i].type == RC_POLY && rl->cmd[i].pattern == PAT_WHITE) n++;
+    return n;
+}
+
+static void test_impacts_spawn_and_expire(void) {
+    static Game g;
+    GameInput in = no_input();
+    int i, before, with, f;
+    game_init(&g, 1);
+    i = dummy_spawn(&g.dummies, DS_MEDIUM, 0.0f, 1.0f, -1);
+    g.dummies.d[i].state = DST_WALK;
+    g.dummies.d[i].hp = 100.0f;
+    game_render(&g);
+    before = count_polys_white(&g.rl);
+    g.swing.phase = SWS_SWEEP; g.swing.t = 2; g.swing.sweep01 = 2.0f / 6.0f;
+    g.swing.side = SIDE_CENTER; g.swing.vert = VERT_DOWN; g.swing.factor = 1.0f;
+    game_update(&g, &in);
+    CHECK_EQ_INT(g.nhits, 1);
+    game_render(&g);
+    with = count_polys_white(&g.rl);
+    CHECK(with >= before + 14);
+    for (f = 0; f < IMPACT_FRAMES - 1; f++) { game_update(&g, &in); game_render(&g); }
+    CHECK(count_polys_white(&g.rl) >= before + 14);       /* still shown on the 4th frame */
+    game_update(&g, &in); game_render(&g);
+    CHECK(count_polys_white(&g.rl) < before + 14);        /* gone on the 5th */
+}
+
+static void test_impacts_capped_at_eight(void) {
+    static Game g;
+    GameInput in = no_input();
+    game_init(&g, 1);
+    for (int k = 0; k < 16; k++) {
+        int i = dummy_spawn(&g.dummies, DS_SMALL, -0.6f + 0.08f * (float)k, 1.0f + 0.01f * (float)k, -1);
+        g.dummies.d[i].state = DST_WALK;
+        g.dummies.d[i].hp = 100.0f;
+    }
+    g.swing.phase = SWS_SWEEP; g.swing.t = 2; g.swing.sweep01 = 2.0f / 6.0f;
+    g.swing.side = SIDE_CENTER; g.swing.vert = VERT_DOWN; g.swing.factor = 1.0f;
+    game_update(&g, &in);
+    CHECK(g.nhits > 8);
+    game_render(&g);
+    CHECK_EQ_INT(g.rl.dropped, 0);
+}
+
+static void test_game_weapon_rigs(void) {
+    static Game g;
+    WeaponRig w[WEAPON_COUNT];
+    game_init(&g, 1);
+    CHECK(g.wrigs[W_BAT].grip.y > 100.0f);       /* defaults already installed */
+    memset(w, 0, sizeof(w));
+    w[W_BAT].w = 77;
+    game_set_weapon_rigs(&g, w);
+    CHECK_EQ_INT(g.wrigs[W_BAT].w, 77);
+}
+
 void suite_draw_world(void) {
     test_hallway_emits_geometry();
     test_hallway_scrolls();
@@ -208,4 +448,15 @@ void suite_draw_world(void) {
     test_doors_draw();
     test_worst_case_no_drops();
     test_door_leaf_swings_into_hallway();
+    test_weapon_rest_pose();
+    test_weapon_sweep_left_to_right();
+    test_weapon_sweep_up();
+    test_weapon_crosses_screen_centre();
+    test_impact_star();
+    test_rl_offset();
+    test_hurt_shake();
+    test_hurt_shake_offsets_world_only();
+    test_impacts_spawn_and_expire();
+    test_impacts_capped_at_eight();
+    test_game_weapon_rigs();
 }

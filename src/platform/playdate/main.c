@@ -58,6 +58,7 @@ int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg) {
         pd_render_set_images(g_images, IMG_COUNT);
         init_game(pd);
         game_set_rigs(&g_game, g_rigs);
+        game_set_weapon_rigs(&g_game, g_wrigs);
         pd->system->setUpdateCallback(update, NULL);
     }
     return 0;

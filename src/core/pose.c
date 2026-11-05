@@ -119,12 +119,12 @@ static void reaction_peak(ReactionType rx, const DummyPose* neutral, DummyPose* 
     }
 }
 
-void pose_for_reaction(ReactionType rx, float t01, const Dummy* d, DummyPose* out) {
+void pose_for_reaction(ReactionType rx, float t01, const Dummy* d, int frame, DummyPose* out) {
     Dummy walker = *d;
     DummyPose n, p;
     float e;
     walker.state = DST_WALK; walker.timer = 0;
-    pose_for_state(&walker, 0, &n);
+    pose_for_state(&walker, frame, &n);
     reaction_peak(rx, &n, &p);
     t01 = clampf(t01, 0.0f, 1.0f);
     e = t01 * t01;

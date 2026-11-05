@@ -25,6 +25,13 @@ void suite_camera(void) {
     w.x = 0.0f; w.y = CAM_Y; w.z = c.player_z + 0.1f;
     CHECK(!camera_project(&c, w, &sx, &sy, &ppm));
 
+    /* The hallway clips quads to exactly player_z + NEAR_Z: that must project for any player_z. */
+    for (int i = 0; i < 400; i++) {
+        c.player_z = 0.0137f * (float)i;
+        w.z = c.player_z + NEAR_Z;
+        CHECK(camera_project(&c, w, &sx, &sy, &ppm));
+    }
+
     /* Aim eases toward its target by AIM_EASE_PX_PER_FRAME per update. */
     camera_set_aim(&c, 0);
     camera_update(&c);

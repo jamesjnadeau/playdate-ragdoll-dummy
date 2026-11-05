@@ -30,6 +30,7 @@ typedef struct {
     int n;
     char text[1024];
     int text_n;
+    bool invert;    /* the platform inverts the display for this frame */
     int dropped;    /* commands refused because the list or text buffer was full */
 } RenderList;
 
@@ -38,6 +39,8 @@ void rl_poly(RenderList* rl, const float* xy, int npts, Pattern p);
 void rl_line(RenderList* rl, float x0, float y0, float x1, float y1, int width, Pattern p);
 void rl_rect(RenderList* rl, float x, float y, float w, float h, Pattern fill, bool outline);
 void rl_bitmap(RenderList* rl, int image, float x, float y, float angle_deg, float cx, float cy, float sx, float sy, bool flip_x);
+/* Shifts every command from index start on by (dx, dy) pixels. */
+void rl_offset(RenderList* rl, int start, int dx, int dy);
 void rl_text(RenderList* rl, const char* s, float x, float y);
 
 #endif

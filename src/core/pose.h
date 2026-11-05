@@ -18,8 +18,8 @@ typedef struct {
 
 /* Idle/walk/windup/punch/stagger poses. frame is the global frame counter. */
 void pose_for_state(const Dummy* d, int frame, DummyPose* out);
-/* Reaction pose (ReactionType in combat.h). t01 = 1 at the hit, easing to 0; blends toward the neutral walk pose. */
-void pose_for_reaction(ReactionType rx, float t01, const Dummy* d, DummyPose* out);
+/* Reaction pose (ReactionType in combat.h). t01 = 1 at the hit, easing to 0; blends toward the neutral walk pose of the same global frame. */
+void pose_for_reaction(ReactionType rx, float t01, const Dummy* d, int frame, DummyPose* out);
 void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRig* rig, const DummyPose* pose);
 /* World position of the open leaf's free edge (x, z). */
 void door_leaf_free_edge(const Door* door, float* x, float* z);

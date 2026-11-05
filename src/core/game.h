@@ -13,6 +13,9 @@
 #include "rig.h"
 #include "swing.h"
 #include "combat.h"
+#include "tuning.h"
+
+typedef struct { float x, y, r; int t; } Impact;   /* screen star, t = frames left */
 
 typedef struct Game {
     Camera cam;
@@ -29,11 +32,16 @@ typedef struct Game {
     bool prev_docked;     /* crank dock state last frame, to swallow the undock jump */
     HitResult hits[16];   /* this frame's hits, for effects and sounds */
     int nhits;
+    WeaponRig wrigs[WEAPON_COUNT];   /* grip/tip and image size of each held weapon */
+    Impact impacts[MAX_IMPACTS];
+    int hurt_t;           /* frames of hurt shake left; the frame it starts on also inverts */
 } Game;
 
 void game_init(Game* g, uint32_t seed);
 /* Copies the platform-measured rigs (part sizes) into the game. */
 void game_set_rigs(Game* g, const DummyRig rigs[DS_COUNT]);
+/* Copies the platform-measured weapon rigs (image sizes) into the game. */
+void game_set_weapon_rigs(Game* g, const WeaponRig wrigs[WEAPON_COUNT]);
 void game_update(Game* g, const GameInput* in);
 /* Starts a benchmark scene. Other scenes behave like WALK until their task. */
 void game_start_bench(Game* g, const BenchConfig* cfg);

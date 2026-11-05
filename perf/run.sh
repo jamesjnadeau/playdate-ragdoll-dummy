@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # perf/run.sh [scenario...]: runs pdsim scenarios in parallel (default: all in perf/scenarios/).
+# Rebuilds and restages first; set PERF_NO_BUILD=1 to skip that.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
@@ -15,6 +16,12 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 mkdir -p build/perf
+
+# Rebuild and restage once, before the parallel runs, so the stage is never stale.
+if [ "${PERF_NO_BUILD:-0}" != "1" ]; then
+    make device_bin > build/perf/build.log 2>&1 || { cat build/perf/build.log >&2; echo "perf/run.sh: make device_bin failed" >&2; exit 1; }
+    tools/stage_pdsim.sh > build/perf/stage.log 2>&1 || { cat build/perf/stage.log >&2; echo "perf/run.sh: stage_pdsim.sh failed" >&2; exit 1; }
+fi
 
 run_one() {
     local s=$1 dir args

@@ -21,7 +21,7 @@ static void test_pose_upward_head_back(void) {
     Dummy d; DummyPose p, n, w;
     memset(&d, 0, sizeof d);
     d.alive = true; d.size = DS_MEDIUM; d.state = DST_STAGGER;
-    pose_for_reaction(RX_UPWARD, 1.0f, &d, &p);
+    pose_for_reaction(RX_UPWARD, 1.0f, &d, 0, &p);
     CHECK_NEAR(p.head_dy, -18.0f, 0.0001f);
     CHECK_NEAR(p.head_rot_deg, -17.0f, 0.0001f);
     CHECK_NEAR(p.head_sy, 0.82f, 0.0001f);
@@ -29,22 +29,36 @@ static void test_pose_upward_head_back(void) {
     CHECK_NEAR(p.arm_l_deg, 130.0f, 0.0001f);
     CHECK_EQ_INT(p.face, PART_FACE_WHACK);
     CHECK(p.teeth);
-    pose_for_reaction(RX_UPWARD, 0.0f, &d, &p);
+    pose_for_reaction(RX_UPWARD, 0.0f, &d, 0, &p);
     d.state = DST_WALK;
     pose_for_state(&d, 0, &n);
     same(&p, &n);
     /* mid-reaction: strictly between neutral and peak */
-    pose_for_reaction(RX_UPWARD, 0.5f, &d, &w);
+    pose_for_reaction(RX_UPWARD, 0.5f, &d, 0, &w);
     CHECK(w.head_dy < 0.0f && w.head_dy > -18.0f);
     CHECK(!w.teeth);
+}
+
+static void test_pose_reaction_end_matches_walk_frame(void) {
+    Dummy d; DummyPose p, n;
+    int frames[3] = { 0, 7, 19 };
+    memset(&d, 0, sizeof d);
+    d.alive = true; d.size = DS_MEDIUM; d.state = DST_STAGGER;
+    for (int i = 0; i < 3; i++) {
+        pose_for_reaction(RX_UPWARD, 0.0f, &d, frames[i], &p);
+        d.state = DST_WALK;
+        pose_for_state(&d, frames[i], &n);
+        d.state = DST_STAGGER;
+        same(&p, &n);      /* no pop when the reaction ends on any frame */
+    }
 }
 
 static void test_pose_from_left_mirror(void) {
     Dummy d; DummyPose l, r;
     memset(&d, 0, sizeof d);
     d.alive = true; d.size = DS_SMALL; d.state = DST_STAGGER;
-    pose_for_reaction(RX_FROM_LEFT, 1.0f, &d, &l);
-    pose_for_reaction(RX_FROM_RIGHT, 1.0f, &d, &r);
+    pose_for_reaction(RX_FROM_LEFT, 1.0f, &d, 0, &l);
+    pose_for_reaction(RX_FROM_RIGHT, 1.0f, &d, 0, &r);
     CHECK_NEAR(l.lean_deg, 20.0f, 0.0001f);
     CHECK_NEAR(l.lean_deg, -r.lean_deg, 0.0001f);
     CHECK_NEAR(l.arm_l_deg, 145.0f, 0.0001f);
@@ -57,21 +71,22 @@ static void test_pose_downward_and_diagonal(void) {
     Dummy d; DummyPose p;
     memset(&d, 0, sizeof d);
     d.alive = true; d.size = DS_LARGE; d.state = DST_STAGGER;
-    pose_for_reaction(RX_DOWNWARD, 1.0f, &d, &p);
+    pose_for_reaction(RX_DOWNWARD, 1.0f, &d, 0, &p);
     CHECK_NEAR(p.sx, 1.28f, 0.0001f);
     CHECK_NEAR(p.sy, 0.72f, 0.0001f);
     CHECK_NEAR(p.arm_l_deg, 75.0f, 0.0001f);
     CHECK_NEAR(p.elbow_l_deg, -35.0f, 0.0001f);
     CHECK_EQ_INT(p.face, PART_FACE_SQUISH);
     CHECK(p.stars);
-    pose_for_reaction(RX_LEFT_UP, 1.0f, &d, &p);
+    pose_for_reaction(RX_LEFT_UP, 1.0f, &d, 0, &p);
     CHECK_NEAR(p.lean_deg, 20.0f, 0.0001f);
     CHECK_NEAR(p.head_dy, -18.0f, 0.0001f);
-    pose_for_reaction(RX_NONE, 1.0f, &d, &p);
+    pose_for_reaction(RX_NONE, 1.0f, &d, 0, &p);
     CHECK(!p.teeth && !p.stars);
 }
 
 void suite_pose(void) {
+    test_pose_reaction_end_matches_walk_frame();
     test_pose_upward_head_back();
     test_pose_from_left_mirror();
     test_pose_downward_and_diagonal();

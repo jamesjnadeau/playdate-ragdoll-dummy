@@ -66,6 +66,7 @@ static void exec_bitmap(PlaydateAPI* pd, const RenderCmd* c) {
 void pd_render_execute(PlaydateAPI* pd, const RenderList* rl) {
     const struct playdate_graphics* gfx = pd->graphics;
     if (!g_pat_ready) init_patterns();
+    pd->display->setInverted(rl->invert ? 1 : 0);
     gfx->clear(kColorWhite);
     for (int i = 0; i < rl->n; i++) {
         const RenderCmd* c = &rl->cmd[i];

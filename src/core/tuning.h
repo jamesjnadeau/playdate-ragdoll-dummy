@@ -5,6 +5,8 @@
 #define HALL_HALF_W 1.6f
 #define HALL_H 2.7f
 #define CAM_Y 1.35f
+#define SCREEN_W 400.0f
+#define SCREEN_H 240.0f
 #define FOCAL 150.0f
 #define SCREEN_CX 200.0f
 #define HORIZON_Y 108.0f
@@ -12,6 +14,7 @@
 #define AIM_PITCH_HIGH_PX 40.0f
 #define AIM_EASE_PX_PER_FRAME 8.0f
 #define NEAR_Z 0.25f
+#define NEAR_Z_EPS 0.0005f           /* float rounding slack on the near-plane test */
 #define FAR_Z 16.0f
 #define PLAYER_SPEED 1.6f
 #define PLAYER_RADIUS 0.35f
@@ -85,5 +88,29 @@
 #define DUMMY_TARGET_Z_OFFSET 0.1f
 #define DOOR_SPAWN_INSET 0.3f
 #define WEAPON_OFFER_EVERY_DOORS 4
+/* Weapon drawing (screen px, degrees; 0 deg points the weapon straight up). */
+#define WEAPON_REST_X 352.0f
+#define WEAPON_REST_Y 262.0f
+#define WEAPON_REST_DEG -53.0f
+#define WEAPON_PIVOT_X 200.0f
+#define WEAPON_PIVOT_Y 300.0f
+#define WEAPON_SWEEP_RADIUS 150.0f
+#define WEAPON_SIDE_DEG 70.0f
+#define WEAPON_VERT_NEAR_DEG 20.0f
+#define WEAPON_VERT_FAR_DEG 160.0f
+#define SPEED_LINES 3
+#define SPEED_LINE_GAP_DEG 6.0f
+#define SPEED_LINE_LEN_DEG 22.0f
+/* Impact stars and hurt feedback. */
+#define IMPACT_FRAMES 4
+#define MAX_IMPACTS 8
+#define IMPACT_POINTS 14
+#define IMPACT_OUTLINE_PX 2.0f
+#define IMPACT_INNER_RATIO 0.5f
+#define IMPACT_MIN_R 8.0f
+#define IMPACT_MAX_R 30.0f
+#define IMPACT_R_PER_PPM 0.22f       /* star radius per pixel-per-metre of projection */
+#define HURT_SHAKE_FRAMES 6
+#define HURT_SHAKE_PX 3
 
 #endif

@@ -32,6 +32,31 @@ void rl_clear(RenderList* rl) {
     rl->n = 0;
     rl->text_n = 0;
     rl->dropped = 0;
+    rl->invert = false;
+}
+
+void rl_offset(RenderList* rl, int start, int dx, int dy) {
+    int i, k;
+    if (start < 0) start = 0;
+    for (i = start; i < rl->n; i++) {
+        RenderCmd* c = &rl->cmd[i];
+        switch (c->type) {
+        case RC_POLY:
+            for (k = 0; k < c->npts; k++) {
+                c->pts[k * 2] = (int16_t)(c->pts[k * 2] + dx);
+                c->pts[k * 2 + 1] = (int16_t)(c->pts[k * 2 + 1] + dy);
+            }
+            break;
+        case RC_LINE:
+            c->pts[0] = (int16_t)(c->pts[0] + dx); c->pts[1] = (int16_t)(c->pts[1] + dy);
+            c->pts[2] = (int16_t)(c->pts[2] + dx); c->pts[3] = (int16_t)(c->pts[3] + dy);
+            break;
+        default:
+            c->x += (float)dx;
+            c->y += (float)dy;
+            break;
+        }
+    }
 }
 
 void rl_poly(RenderList* rl, const float* xy, int npts, Pattern p) {
