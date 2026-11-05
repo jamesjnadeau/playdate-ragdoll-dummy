@@ -141,7 +141,6 @@ void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRi
 
 #define DOOR_H 2.1f
 #define FRAME_T 0.09f           /* frame thickness in metres */
-#define LEAF_MAX_DEG 90.0f
 #define PANEL_DETAIL_DIST 9.0f
 
 static void dproj(const Camera* cam, float x, float y, float z, float* sx, float* sy) {
@@ -179,9 +178,9 @@ static void wall_box(RenderList* rl, const Camera* cam, float x, float z0, float
 }
 
 void door_leaf_free_edge(const Door* door, float* x, float* z) {
-    float ang = clampf(door->leaf_angle, 0.0f, 1.0f) * LEAF_MAX_DEG;
-    /* Hinged on the wall at the near edge (door->z); swings into the hallway (-side). Fully open it is
-       perpendicular to the wall. */
+    float ang = clampf(door->leaf_angle, 0.0f, 1.0f) * DOOR_OPEN_MAX_DEG;
+    /* Hinged on the wall at the near edge (door->z); swings into the hallway (-side). At 90 deg it is
+       perpendicular to the wall; at DOOR_OPEN_MAX_DEG it lies nearly along the wall on the player's side. */
     *x = (float)door->side * (HALL_HALF_W - DOOR_LEN * rsin_deg(ang));
     *z = door->z + DOOR_LEN * rcos_deg(ang);
 }

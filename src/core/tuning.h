@@ -72,6 +72,8 @@
 #define DOOR_ACTIVATE_DIST 8.0f
 #define DOOR_SPAWN_INTERVAL 45
 #define DOOR_RECYCLE_BEHIND 4.0f
+/* Open angle (deg from closed) of a fully open door; owner wants it configurable. Near 180 lies along the wall. */
+#define DOOR_OPEN_MAX_DEG 165.0f
 #define DOOR_LEAF_STEP 0.1f
 #define DOOR_MAX_DUMMIES 5
 #define DOOR_DUMMIES_PER_Z 60.0f
