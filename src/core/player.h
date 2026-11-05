@@ -10,6 +10,7 @@ typedef struct {
     float z, x;
     int hearts, invuln, knock_frames;
     float knock_v;
+    float min_z;          /* furthest-forward closed door; the player can never go back past it */
     bool dead;
 } Player;
 

@@ -175,7 +175,49 @@ static void test_door_pool_full_keeps_remaining(void) {
     CHECK_EQ_INT(g.hall.doors[0].remaining, 2);
 }
 
+static void test_back_floor_survives_recycle(void) {
+    Game g; GameInput fwd = held(BTN_A), back = held(BTN_B);
+    int f;
+    float door_z;
+    game_init(&g, 11);
+    setup_door(&g.hall, 0);
+    door_z = g.hall.doors[0].z;
+    g.player.z = 4.4f; g.cam.player_z = 4.4f;
+    for (f = 0; f < 400 && g.player.z < door_z + 6.0f; f++) game_update(&g, &fwd);
+    CHECK(g.player.z >= door_z + 6.0f);
+    CHECK_EQ_INT(g.hall.doors_emptied >= 1, 1);
+    CHECK(g.hall.doors[0].z > door_z);   /* the closed door was recycled */
+    for (f = 0; f < 600; f++) {
+        game_update(&g, &back);
+        CHECK(g.player.z >= door_z - 1e-4f);
+    }
+}
+
+static void test_slam_with_emerging_and_no_remaining(void) {
+    Game g; GameInput in = held(BTN_A);
+    int f, i, n = 0, ev = 0;
+    game_init(&g, 9);
+    setup_door(&g.hall, 0);
+    g.player.z = 4.5f; g.cam.player_z = 4.5f;
+    i = dummy_spawn(&g.dummies, DS_SMALL, 1.3f, 4.55f, 0);
+    for (f = 0; f < 3; f++) game_update(&g, &in);
+    CHECK(g.player.z < 4.55f);                     /* slammed back */
+    for (f = 0; f < MAX_DUMMIES; f++) n += g.dummies.d[f].alive;
+    CHECK_EQ_INT(n, 1);                            /* nothing new spawned */
+    CHECK_EQ_INT(g.hall.doors[0].state, DOOR_OPEN);
+    while (g.dummies.d[i].state == DST_EMERGING) game_update(&g, &(GameInput){0});
+    g.dummies.d[i].alive = false;
+    for (f = 0; f < 120; f++) {
+        ev |= player_update(&g.player, &in, &g.hall, &g.dummies, 0);
+        if (ev & PEV_DOOR_CLOSED) break;
+    }
+    CHECK(ev & PEV_DOOR_CLOSED);
+    CHECK_EQ_INT(g.hall.doors[0].state, DOOR_CLOSED_DONE);
+}
+
 void suite_player(void) {
+    test_back_floor_survives_recycle();
+    test_slam_with_emerging_and_no_remaining();
     test_player_walks();
     test_player_blocked_by_dummy();
     test_door_slam();

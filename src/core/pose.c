@@ -74,7 +74,7 @@ static Vec2 rot(Vec2 v, float deg) {
 typedef struct {
     RenderList* rl;
     float bx, by, s;        /* base screen position, px per rig px */
-    float lean, psx, psy;   /* lean degrees and pose scale */
+    float lean, lsin, lcos, psx, psy;   /* lean degrees (with cached sin/cos) and pose scale */
     int size;
 } DrawCtx;
 
@@ -82,7 +82,7 @@ typedef struct {
 static Vec2 to_screen(const DrawCtx* c, Vec2 a) {
     Vec2 v;
     v.x = a.x * c->psx; v.y = a.y * c->psy;
-    v = rot(v, c->lean);
+    { float x = v.x * c->lcos - v.y * c->lsin; v.y = v.x * c->lsin + v.y * c->lcos; v.x = x; }
     v.x = c->bx + v.x * c->s;
     v.y = c->by + v.y * c->s;
     return v;
@@ -119,9 +119,11 @@ void draw_dummy(RenderList* rl, const Camera* cam, const Dummy* d, const DummyRi
 
     w.x = d->x; w.y = pose->lift_m; w.z = d->z;
     if (!camera_project(cam, w, &sx, &sy, &ppm)) return;
+    if (d->z - cam->player_z > FAR_Z) return;
+    if (sx + ppm * dummy_height(d->size) < 0.0f || sx - ppm * dummy_height(d->size) > 400.0f) return;
     c.rl = rl; c.bx = sx; c.by = sy;
     c.s = ppm * dummy_height(d->size) / rig->height_px;
-    c.lean = pose->lean_deg; c.psx = pose->sx; c.psy = pose->sy;
+    c.lean = pose->lean_deg; c.lsin = rsin_deg(c.lean); c.lcos = rcos_deg(c.lean); c.psx = pose->sx; c.psy = pose->sy;
     c.size = (int)d->size;
 
     part(&c, PART_BASE, origin, 0.0f, 0.5f, 0.5f, 1.0f);

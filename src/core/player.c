@@ -10,6 +10,7 @@ void player_init(Player* p) {
     p->invuln = 0;
     p->knock_frames = 0;
     p->knock_v = 0.0f;
+    p->min_z = 0.0f;
     p->dead = false;
 }
 
@@ -46,7 +47,10 @@ static bool door_has_emerging(const DummyPool* dp, int door) {
 
 int player_update(Player* p, const GameInput* in, Hallway* h, DummyPool* dp, int incoming_damage) {
     int ev = PEV_NONE, i;
-    float prev = p->z, floor_z = back_floor(h);
+    float prev = p->z, floor_z;
+    float bf = back_floor(h);
+    if (bf > p->min_z) p->min_z = bf;
+    floor_z = p->min_z;
 
     if (p->invuln > 0) p->invuln--;
     if (incoming_damage > 0 && p->invuln == 0 && !p->dead) {
@@ -90,6 +94,7 @@ int player_update(Player* p, const GameInput* in, Hallway* h, DummyPool* dp, int
         } else {
             d->state = DOOR_CLOSED_DONE;
             h->doors_emptied++;
+            if (d->z > p->min_z) p->min_z = d->z;
             ev |= PEV_DOOR_CLOSED;
         }
     }

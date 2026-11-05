@@ -43,13 +43,12 @@ static void spawn_from_doors(Game* g) {
 }
 
 void game_update(Game* g, const GameInput* in) {
-    if (in->pressed & BTN_UP) camera_set_aim(&g->cam, g->cam.aim + 1);
-    if (in->pressed & BTN_DOWN) camera_set_aim(&g->cam, g->cam.aim - 1);
-    camera_update(&g->cam);
-
     player_update(&g->player, in, &g->hall, &g->dummies, g->pending_damage);
     g->pending_damage = 0;
     g->cam.player_z = g->player.z;
+    if (in->pressed & BTN_UP) camera_set_aim(&g->cam, g->cam.aim + 1);
+    if (in->pressed & BTN_DOWN) camera_set_aim(&g->cam, g->cam.aim - 1);
+    camera_update(&g->cam);
     g->frame++;
 
     hallway_update(&g->hall, &g->rng, g->cam.player_z);

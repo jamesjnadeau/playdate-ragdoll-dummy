@@ -155,6 +155,30 @@ static void test_door_leaf_swings_into_hallway(void) {
     }
 }
 
+static void test_worst_case_no_drops(void) {
+    Camera cam = {0.0f, 0.0f, 1};
+    Hallway h;
+    DummyPool dp;
+    init_rigs();
+    memset(&h, 0, sizeof(h));
+    memset(&dp, 0, sizeof(dp));
+    h.ndoors = MAX_DOORS;
+    for (int i = 0; i < MAX_DOORS; i++) {
+        h.doors[i].side = (i & 1) ? 1 : -1;
+        h.doors[i].z = 1.0f + 1.4f * (float)i;
+        h.doors[i].state = (i % 3 == 0) ? DOOR_OPEN : DOOR_CLOSED_FULL;
+        h.doors[i].leaf_angle = 1.0f;
+    }
+    for (int i = 0; i < MAX_DUMMIES; i++) {
+        dummy_spawn(&dp, (DummySize)(i % 3), -0.9f + 0.12f * (float)i, 1.0f + 0.9f * (float)i, -1);
+        dp.d[i].state = DST_WINDUP;
+    }
+    rl_clear(&g_rl);
+    draw_world(&g_rl, &cam, &h, &dp, g_rigs, 5);
+    CHECK_EQ_INT(g_rl.dropped, 0);
+    CHECK(g_rl.n < 512);
+}
+
 static void test_hallway_clips_near(void) {
     /* Standing inside a panel/cross-line period must not emit non-finite or dropped geometry. */
     Camera cam = {1.4f, 0.0f, 1};
@@ -171,5 +195,6 @@ void suite_draw_world(void) {
     test_draw_dummy_scales_with_distance();
     test_dummies_sorted_far_to_near();
     test_doors_draw();
+    test_worst_case_no_drops();
     test_door_leaf_swings_into_hallway();
 }
