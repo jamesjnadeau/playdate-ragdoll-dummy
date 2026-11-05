@@ -67,8 +67,13 @@ All gameplay numbers are in `src/core/tuning.h`, except the weapon table in `src
 | DOOR_OPEN_MAX_DEG | 165 | Fully open door angle |
 | PLAYER_RADIUS | 0.35 m | Blocking distance is PLAYER_RADIUS + dummy radius |
 | DUMMY_RADIUS_SMALL / MEDIUM / LARGE | 0.30 / 0.38 / 0.50 m | So you stop 0.65 / 0.73 / 0.85 m from a dummy |
+| WEAPON_PIVOT_X / Y | 200 / 400 px | Where the swing pivots (below the screen). Raise Y to move the whole sweep lower |
+| WEAPON_SWEEP_RADIUS | 60 px | Grip distance from the pivot. Mid-sweep the grip is at PIVOT_Y minus this, so a smaller value lifts the weapon |
+| WEAPON_REST_X / Y / ANGLE | 352 / 300 px / -53 deg | Where the weapon rests (grip position and tilt). Raise Y to hide more handle |
 
 The blocking distance matters because near dummies only show their head on screen. Raise or lower the radii to change how much of them you see.
+
+The floor shows a light dotted patch where your weapon can hit (reach and arc of the current weapon, shifted toward the side you hold on the D-pad). The camera looks level, so at the default aim only the far edge of it is on screen; aim down (D-pad down) to see more of it.
 
 Weapon table (`src/core/weapons.c`): fields are name, folder, delay (frames), power, reach, arc, launch, speed bars, power bars.
 

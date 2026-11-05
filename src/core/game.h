@@ -21,7 +21,7 @@
 
 typedef enum { MODE_TITLE, MODE_PLAY, MODE_OFFER, MODE_GAME_OVER, MODE_SKINS, MODE_CREDITS } GameMode;
 
-typedef enum { SND_SWING, SND_HIT_LIGHT, SND_HIT_HEAVY, SND_BURST, SND_GRUNT, SND_DOOR_SLAM, SND_STEP, SND_COUNT } SoundId;
+typedef enum { SND_SWING, SND_HIT_LIGHT, SND_HIT_HEAVY, SND_BURST, SND_GRUNT, SND_DOOR_SLAM, SND_STEP, SND_HURT, SND_COUNT } SoundId;
 
 typedef struct { float x, y, r; int t; } Impact;   /* screen star, t = frames left */
 

@@ -144,8 +144,43 @@ static void test_game_wiring_and_undock(void) {
     CHECK_EQ_INT(g.dummies.d[i].reaction, RX_NONE);
 }
 
+
+/* Task 18a: the floor patch uses the same numbers as the hit test. */
+static int hits_at(const WeaponDef* w, SwingSide side, float x, float z) {
+    DummyPool p; HitResult h[2]; Swing s = mk_swing(side, VERT_DOWN, 1.0f);
+    memset(&p, 0, sizeof p);
+    put(&p, DS_MEDIUM, x, z);
+    return combat_resolve(&s, w, 0, 0.0f, &p, h, 2);
+}
+
+static void test_reach_area_matches_hit_test(void) {
+    for (int wi = 0; wi < W_COUNT; wi++) {
+        const WeaponDef* w = weapon_def((WeaponId)wi);
+        for (int side = -1; side <= 1; side++) {
+            SwingSide ss = (SwingSide)side;
+            float x0, x1, z0, z1, mx, mz;
+            combat_reach_area(w, side, &x0, &x1, &z0, &z1);
+            mx = 0.5f * (x0 + x1); mz = 0.5f * (z0 + z1);
+            CHECK_NEAR(mx, (float)side * 0.6f, 0.0001f);
+            CHECK_NEAR(x1 - x0, 2.0f * w->arc, 0.0001f);
+            CHECK_NEAR(z0, 0.0f, 0.0001f);
+            CHECK_NEAR(z1, w->reach, 0.0001f);
+            CHECK_EQ_INT(hits_at(w, ss, mx, mz), 1);
+            CHECK_EQ_INT(hits_at(w, ss, mx, z1 - 0.01f), 1);   /* far edge */
+            CHECK_EQ_INT(hits_at(w, ss, mx, z1 + 0.01f), 0);
+            CHECK_EQ_INT(hits_at(w, ss, mx, z0 + 0.01f), 1);   /* near edge */
+            CHECK_EQ_INT(hits_at(w, ss, mx, z0 - 0.01f), 0);
+            CHECK_EQ_INT(hits_at(w, ss, x0 + 0.01f, mz), 1);   /* lateral edges */
+            CHECK_EQ_INT(hits_at(w, ss, x0 - 0.01f, mz), 0);
+            CHECK_EQ_INT(hits_at(w, ss, x1 - 0.01f, mz), 1);
+            CHECK_EQ_INT(hits_at(w, ss, x1 + 0.01f, mz), 0);
+        }
+    }
+}
+
 void suite_combat(void) {
     test_game_wiring_and_undock();
+    test_reach_area_matches_hit_test();
     test_hit_in_reach();
     test_head_zone_by_aim();
     test_out_of_reach();

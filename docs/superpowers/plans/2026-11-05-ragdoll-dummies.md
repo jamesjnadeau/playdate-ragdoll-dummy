@@ -494,6 +494,7 @@ void rig_default(DummySize s, DummyRig* out);  /* core pack anchors scaled by si
       - `grunt-1.wav` to `grunt-3.wav`: pitched blips
       - `door-slam.wav`
       - `step.wav`
+      - `hurt.wav`: the player-hurt "oof" (added in the playtest tuning pass)
     - **UI images** in `Source/ui/`: heart-full/empty (14×12) and a bag icon (16×16).
 
 - [ ] **Step 1: Write failing test** `test_rig_default`:
@@ -957,12 +958,13 @@ bool save_read(const char* buf, int len, SaveData* out);       /* never fails ha
 
 **Interfaces:**
 - Produces:
-  - `typedef enum { SND_SWING, SND_HIT_LIGHT, SND_HIT_HEAVY, SND_BURST, SND_GRUNT, SND_DOOR_SLAM, SND_STEP, SND_COUNT } SoundId;` `Game` gains `uint8_t sounds[16]; int nsounds;`, which is cleared at the start of each `game_update`.
+  - `typedef enum { SND_SWING, SND_HIT_LIGHT, SND_HIT_HEAVY, SND_BURST, SND_GRUNT, SND_DOOR_SLAM, SND_STEP, SND_HURT, SND_COUNT } SoundId;` `Game` gains `uint8_t sounds[16]; int nsounds;`, which is cleared at the start of each `game_update`.
     - Push `SND_SWING` on `SWE_STARTED`.
     - Push `SND_HIT_HEAVY` on a hit with damage ≥ 1.4, otherwise `SND_HIT_LIGHT`.
     - Push `SND_GRUNT` on a knockout and `SND_BURST` on a burst.
     - Push `SND_DOOR_SLAM` on a player door slam and on a ragdoll door slam.
     - Push `SND_STEP` every 12 frames while walking.
+    - Push `SND_HURT` when the player takes damage (`PEV_HURT`).
   - `void pd_sound_init(PlaydateAPI*, const char* sound_pack_dir); void pd_sound_play(PlaydateAPI*, SoundId);`
     - Uses one `SamplePlayer` per id.
     - The grunt plays variant `grunt-1..3`, rotating.

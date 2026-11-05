@@ -7,7 +7,7 @@
 #define BLACK_ROWS_D25 { 0x88, 0x00, 0x22, 0x00, 0x88, 0x00, 0x22, 0x00 }
 #define BLACK_ROWS_D50 { 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55 }
 
-static LCDPattern g_pat[6];
+static LCDPattern g_pat[PAT_DIM25 + 1];
 static int g_pat_ready = 0;
 static LCDBitmap** g_images = NULL;
 static int g_image_count = 0;
@@ -48,11 +48,16 @@ static void init_patterns(void) {
     make_pattern(g_pat[PAT_D75], d25, 1);   /* inverse of D25 */
     /* PAT_DIM: black where the D50 checker is black, transparent elsewhere (mask bit set = opaque). */
     for (int i = 0; i < 8; i++) { g_pat[PAT_DIM][i] = 0x00; g_pat[PAT_DIM][8 + i] = d50[i]; }
+    /* PAT_DIM25: the same with a true 25% dither (16 of 64 pixels; BLACK_ROWS_D25 is sparser than that). */
+    {
+        static const uint8_t q25[8] = { 0x88, 0x22, 0x88, 0x22, 0x88, 0x22, 0x88, 0x22 };
+        for (int i = 0; i < 8; i++) { g_pat[PAT_DIM25][i] = 0x00; g_pat[PAT_DIM25][8 + i] = q25[i]; }
+    }
     g_pat_ready = 1;
 }
 
 static LCDColor color_of(int pattern) {
-    if (pattern < 0 || pattern > PAT_DIM) pattern = PAT_BLACK;
+    if (pattern < 0 || pattern > PAT_DIM25) pattern = PAT_BLACK;
     return (LCDColor)(uintptr_t)g_pat[pattern];
 }
 

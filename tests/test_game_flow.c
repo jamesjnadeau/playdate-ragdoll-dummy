@@ -669,6 +669,24 @@ static void test_sound_queue_dedupes_and_is_bounded(void) {
     CHECK(SND_COUNT <= SOUND_QUEUE_MAX);
 }
 
+
+/* Task 18a: the player's hurt sound. */
+static void test_sound_hurt(void) {
+    GameInput in;
+    int c[SND_COUNT];
+    memset(&in, 0, sizeof(in));
+    memset(c, 0, sizeof(c));
+    start(3);
+    tally(3, &in, c);
+    CHECK_EQ_INT(c[SND_HURT], 0);          /* no damage, no sound */
+    g_.pending_damage = 1;
+    tally(1, &in, c);
+    CHECK_EQ_INT(c[SND_HURT], 1);
+    tally(5, &in, c);                       /* invulnerable afterwards: one sound per hurt */
+    CHECK_EQ_INT(c[SND_HURT], 1);
+    CHECK(SND_HURT < SND_COUNT);
+}
+
 static void test_crank_hint(void) {
     GameInput in;
     memset(&in, 0, sizeof(in));
@@ -763,6 +781,7 @@ void suite_game_flow(void) {
     test_sound_burst();
     test_sound_steps();
     test_sound_door_slam();
+    test_sound_hurt();
     test_sound_queue_dedupes_and_is_bounded();
     test_crank_hint();
     test_game_over_shows_updated_bests();

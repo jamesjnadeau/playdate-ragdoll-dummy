@@ -2,6 +2,29 @@
 #include "pose.h"
 #include "tuning.h"
 #include "rmath.h"
+#include "combat.h"
+
+/* The floor patch the weapon can hit: the same box as combat_resolve, from the near plane out to the reach and
+   clamped to the walls. A light 25% dither over the floor, so what stands on it shows through. */
+static void draw_reach_patch(RenderList* rl, const Camera* cam, const WeaponDef* w, int side) {
+    float x0, x1, z0, z1, xy[8], ppm;
+    int i;
+    Vec3 c[4];
+    combat_reach_area(w, side, &x0, &x1, &z0, &z1);
+    if (x0 < -HALL_HALF_W) x0 = -HALL_HALF_W;
+    if (x1 > HALL_HALF_W) x1 = HALL_HALF_W;
+    if (z0 < NEAR_Z) z0 = NEAR_Z;
+    if (x1 <= x0 || z1 <= z0) return;
+    c[0].x = x0; c[0].z = cam->player_z + z0;
+    c[1].x = x1; c[1].z = cam->player_z + z0;
+    c[2].x = x1; c[2].z = cam->player_z + z1;
+    c[3].x = x0; c[3].z = cam->player_z + z1;
+    for (i = 0; i < 4; i++) {
+        c[i].y = 0.0f;
+        if (!camera_project(cam, c[i], &xy[2 * i], &xy[2 * i + 1], &ppm)) return;
+    }
+    rl_poly(rl, xy, 4, PAT_DIM25);
+}
 
 static bool drawable(const Dummy* d) {
     return d->alive && d->state != DST_RAGDOLL && d->state != DST_DEAD;
@@ -9,13 +32,15 @@ static bool drawable(const Dummy* d) {
 
 void draw_world(RenderList* rl, const Camera* cam, const Hallway* hall,
                 const DummyPool* dummies, const DummyRig rigs[DS_COUNT],
-                const RagdollPool* ragdolls, int frame) {
+                const RagdollPool* ragdolls, int frame,
+                const WeaponDef* reach_weapon, int reach_side) {
     /* Dummies are items 0..MAX_DUMMIES-1, ragdolls MAX_DUMMIES.. ; sorted together, farthest first. */
     int order[MAX_DUMMIES + RAGDOLL_MAX];
     float key[MAX_DUMMIES + RAGDOLL_MAX];
     int n = 0, i, j;
 
     draw_hallway(rl, cam);
+    if (reach_weapon) draw_reach_patch(rl, cam, reach_weapon, reach_side);
     for (i = hall->ndoors - 1; i >= 0; i--) draw_door(rl, cam, &hall->doors[i]);
 
     for (i = 0; i < MAX_DUMMIES + RAGDOLL_MAX; i++) {

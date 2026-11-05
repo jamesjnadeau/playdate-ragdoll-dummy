@@ -415,7 +415,7 @@ static void test_draw_world_sorts_ragdolls_with_dummies(void) {
         live = mk_live(&dp, DS_LARGE, 0.5f, 4.0f);
         (void)live;
         rl_clear(&g_rl);
-        draw_world(&g_rl, &cam, &h, &dp, g_rigs, &rp, 0);
+        draw_world(&g_rl, &cam, &h, &dp, g_rigs, &rp, 0, NULL, 0);
         rag = find_image(&g_rl, img_dummy(DS_SMALL, PART_FACE_KO));
         live = find_image(&g_rl, img_dummy(DS_LARGE, PART_FACE_MEAN));
         CHECK(rag >= 0 && live >= 0);

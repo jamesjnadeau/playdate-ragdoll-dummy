@@ -4,7 +4,7 @@
 #define GRUNT_VARIANTS 3
 
 static const char* const k_file[SND_COUNT] = {
-    "swing", "hit-light", "hit-heavy", "burst", "grunt-1", "door-slam", "step"
+    "swing", "hit-light", "hit-heavy", "burst", "grunt-1", "door-slam", "step", "hurt"
 };
 
 static SamplePlayer* g_player[SND_COUNT];

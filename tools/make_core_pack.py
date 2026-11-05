@@ -639,6 +639,16 @@ def make_sounds(root):
     tail = lowpass([rng.uniform(-1, 1) * math.exp(-7 * i / n) for i in range(n)], 0.2)
     write_wav(os.path.join(d, "door-slam.wav"), [a + 0.6 * b for a, b in zip(base, tail)])
     write_wav(os.path.join(d, "step.wav"), thump(rng, 0.09, 140, 60, 0.4, 12))
+    # hurt: an "oof" - a short falling thump with a buzzy, voiced body, lower and longer than the hit sounds
+    n = int(RATE * 0.24)
+    ph, out = 0.0, []
+    for i in range(n):
+        t = i / float(n)
+        ph += 2 * math.pi * (130 - 60 * t) / RATE
+        voice = math.sin(ph) + 0.6 * math.sin(2 * ph) + 0.3 * math.sin(3 * ph)
+        env = min(1.0, t * 30) * math.exp(-t * 4.5)
+        out.append(env * voice + 0.5 * rng.uniform(-1, 1) * math.exp(-t * 55))
+    write_wav(os.path.join(d, "hurt.wav"), lowpass(out, 0.45))
 
 
 # ------------------------------------------------------------------- pack.json

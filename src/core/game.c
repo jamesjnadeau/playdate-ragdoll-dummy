@@ -260,7 +260,7 @@ void game_update(Game* g, const GameInput* in) {
     if (g->hurt_t > 0) g->hurt_t--;
     prev_z = g->player.z;
     pev = player_update(&g->player, in, &g->hall, &g->dummies, g->pending_damage);
-    if (pev & PEV_HURT) g->hurt_t = HURT_SHAKE_FRAMES;
+    if (pev & PEV_HURT) { g->hurt_t = HURT_SHAKE_FRAMES; game_push_sound(g, SND_HURT); }
     if (pev & PEV_DOOR_SLAM) game_push_sound(g, SND_DOOR_SLAM);
     if ((in->held & BTN_A) && g->player.z > prev_z) {
         if (++g->step_t >= STEP_SOUND_FRAMES) { g->step_t = 0; game_push_sound(g, SND_STEP); }
@@ -359,12 +359,14 @@ void game_render(Game* g) {
     int i;
     rl_clear(&g->rl);
     if (g->mode == MODE_TITLE) {   /* the hallway and one idle dummy, with the menu on plates over it */
-        draw_world(&g->rl, &g->cam, &g->hall, &g->dummies, g->rigs, NULL, g->frame);
+        draw_world(&g->rl, &g->cam, &g->hall, &g->dummies, g->rigs, NULL, g->frame, NULL, 0);
         rl_hud_begin(&g->rl);
         hud_draw_title(&g->rl, g);
         return;
     }
-    draw_world(&g->rl, &g->cam, &g->hall, &g->dummies, g->rigs, &g->ragdolls, g->frame);
+    draw_world(&g->rl, &g->cam, &g->hall, &g->dummies, g->rigs, &g->ragdolls, g->frame,
+               g->mode == MODE_PLAY ? weapon_def(g->weapon) : NULL,
+               (g->held & BTN_LEFT) ? -1 : (g->held & BTN_RIGHT) ? 1 : 0);
     if (g->pickup_z >= 0.0f) {
         int start = g->rl.n;
         draw_pickup(&g->rl, &g->cam, g->pickup_z, IMG_WEAPON_ICON0 + (int)g->offer);

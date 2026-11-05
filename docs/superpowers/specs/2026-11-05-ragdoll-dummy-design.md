@@ -360,7 +360,7 @@ and match across packs. The default art ships as a normal pack (`core`).
   weapon-<id>/   held.png (the weapon only, no hands) icon.png
   stuffing/      puff-1.png [puff-2..4.png] scrap-1.png [scrap-2..4.png]
   sounds/        swing.wav hit-light.wav hit-heavy.wav burst.wav
-                 grunt-1.wav [grunt-2..3.wav] door-slam.wav ...
+                 grunt-1.wav [grunt-2..3.wav] door-slam.wav step.wav hurt.wav ...
 ```
 
 A pack includes only the folders for the pieces it covers. Optional files

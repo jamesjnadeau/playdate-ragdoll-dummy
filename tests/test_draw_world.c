@@ -102,7 +102,7 @@ static void test_dummies_sorted_far_to_near(void) {
     dummy_spawn(&dp, DS_LARGE, -0.3f, 6.0f, -1);   /* far */
     dp.d[0].state = DST_WALK; dp.d[1].state = DST_WALK;
     rl_clear(&g_rl);
-    draw_world(&g_rl, &cam, &h, &dp, g_rigs, NULL, 0);
+    draw_world(&g_rl, &cam, &h, &dp, g_rigs, NULL, 0, NULL, 0);
     for (int i = 0; i < g_rl.n && first_body < 0; i++) {
         int im = g_rl.cmd[i].image;
         if (g_rl.cmd[i].type != RC_BITMAP) continue;
@@ -186,7 +186,7 @@ static void test_worst_case_no_drops(void) {
         dp.d[i].state = DST_WINDUP;
     }
     rl_clear(&g_rl);
-    draw_world(&g_rl, &cam, &h, &dp, g_rigs, NULL, 5);
+    draw_world(&g_rl, &cam, &h, &dp, g_rigs, NULL, 5, NULL, 0);
     CHECK_EQ_INT(g_rl.dropped, 0);
     CHECK(g_rl.n < 1024);
 }
@@ -235,9 +235,9 @@ static void test_weapon_rest_pose(void) {
     c = only_bitmap(&g_rl, &n);
     CHECK_EQ_INT(n, 1);
     CHECK_EQ_INT(g_rl.n, 1);     /* no speed lines and no hands at rest */
-    CHECK_NEAR(c->angle_deg, -53.0f, 0.001f);
-    CHECK_NEAR(c->x, 352.0f, 0.001f);
-    CHECK_NEAR(c->y, 262.0f, 0.001f);
+    CHECK_NEAR(c->angle_deg, WEAPON_REST_DEG, 0.001f);
+    CHECK_NEAR(c->x, WEAPON_REST_X, 0.001f);
+    CHECK_NEAR(c->y, WEAPON_REST_Y, 0.001f);
     CHECK_NEAR(c->cx, 30.0f / 60.0f, 0.001f);
     CHECK_NEAR(c->cy, 171.0f / 180.0f, 0.001f);
 }
@@ -249,40 +249,42 @@ static void test_weapon_sweep_left_to_right(void) {
     g_wr.w = 60; g_wr.h = 180;
     s.phase = SWS_SWEEP; s.side = SIDE_LEFT; s.vert = VERT_DOWN;
     s.sweep01 = 0.0f;
-    CHECK_NEAR(weapon_angle(&s), -70.0f, 0.001f);
+    CHECK_NEAR(weapon_angle(&s), -WEAPON_SIDE_DEG, 0.001f);
     s.sweep01 = 1.0f;
-    CHECK_NEAR(weapon_angle(&s), 70.0f, 0.001f);
+    CHECK_NEAR(weapon_angle(&s), WEAPON_SIDE_DEG, 0.001f);
     s.side = SIDE_RIGHT;
-    CHECK_NEAR(weapon_angle(&s), -70.0f, 0.001f);
+    CHECK_NEAR(weapon_angle(&s), -WEAPON_SIDE_DEG, 0.001f);
     s.sweep01 = 0.0f;
-    CHECK_NEAR(weapon_angle(&s), 70.0f, 0.001f);
+    CHECK_NEAR(weapon_angle(&s), WEAPON_SIDE_DEG, 0.001f);
 }
 
 static void test_weapon_sweep_up(void) {
     Swing s;
     const RenderCmd* c;
     int n, lines = 0;
+    const float mid = 0.5f * (WEAPON_VERT_NEAR_DEG + WEAPON_VERT_FAR_DEG);
     memset(&s, 0, sizeof(s));
     weapon_rig_default(W_BAT, &g_wr);
     g_wr.w = 60; g_wr.h = 180;
     s.phase = SWS_SWEEP; s.side = SIDE_CENTER; s.vert = VERT_UP; s.sweep01 = 0.5f;
-    CHECK_NEAR(weapon_angle(&s), 90.0f, 0.001f);
+    CHECK_NEAR(weapon_angle(&s), mid, 0.001f);
     c = only_bitmap(&g_rl, &n);
-    /* grip rides the circle around (200,300): at 90 deg it is level with the pivot, to the right */
-    CHECK_NEAR(c->y, 300.0f, 0.5f);
-    CHECK(c->x > 300.0f);
+    /* the grip rides the circle around the pivot */
+    CHECK_NEAR(c->y, WEAPON_PIVOT_Y - WEAPON_SWEEP_RADIUS * cosf(mid * 3.14159265f / 180.0f), 0.5f);
+    CHECK_NEAR(c->x, WEAPON_PIVOT_X + WEAPON_SWEEP_RADIUS * sinf(mid * 3.14159265f / 180.0f), 0.5f);
     for (int i = 0; i < g_rl.n; i++) if (g_rl.cmd[i].type == RC_LINE) lines++;
     CHECK_EQ_INT(lines, 3);
     s.vert = VERT_DOWN; s.sweep01 = 0.0f;
-    CHECK_NEAR(weapon_angle(&s), 20.0f, 0.001f);
+    CHECK_NEAR(weapon_angle(&s), WEAPON_VERT_NEAR_DEG, 0.001f);
     s.sweep01 = 1.0f;
-    CHECK_NEAR(weapon_angle(&s), 160.0f, 0.001f);
+    CHECK_NEAR(weapon_angle(&s), WEAPON_VERT_FAR_DEG, 0.001f);
     s.vert = VERT_UP; s.sweep01 = 0.0f;
-    CHECK_NEAR(weapon_angle(&s), 160.0f, 0.001f);
+    CHECK_NEAR(weapon_angle(&s), WEAPON_VERT_FAR_DEG, 0.001f);
     s.sweep01 = 1.0f;
-    CHECK_NEAR(weapon_angle(&s), 20.0f, 0.001f);
+    CHECK_NEAR(weapon_angle(&s), WEAPON_VERT_NEAR_DEG, 0.001f);
 }
 
+/* Owner playtest: the swing crosses the lower-middle of the screen with the grip off the bottom edge. */
 static void test_weapon_crosses_screen_centre(void) {
     Swing s;
     const RenderCmd* c;
@@ -290,11 +292,21 @@ static void test_weapon_crosses_screen_centre(void) {
     memset(&s, 0, sizeof(s));
     weapon_rig_default(W_BAT, &g_wr);
     g_wr.w = 60; g_wr.h = 180;
-    s.phase = SWS_SWEEP; s.side = SIDE_LEFT; s.vert = VERT_DOWN; s.sweep01 = 0.5f;
-    weapon_angle(&s);
-    c = only_bitmap(&g_rl, &n);
-    CHECK_NEAR(c->x, 200.0f, 0.5f);
-    CHECK(c->y > 100.0f && c->y < 200.0f);
+    for (int side = -1; side <= 1; side += 2) {
+        float head_y;
+        s.phase = SWS_SWEEP; s.side = (SwingSide)side; s.vert = VERT_DOWN; s.sweep01 = 0.5f;
+        weapon_angle(&s);
+        c = only_bitmap(&g_rl, &n);
+        CHECK_NEAR(c->x, WEAPON_PIVOT_X, 0.5f);              /* straight up at the middle of the sweep */
+        head_y = c->y - c->cy * (float)g_wr.h;               /* grip to head, straight up */
+        CHECK(head_y >= 120.0f && head_y <= 180.0f);
+        CHECK(c->y >= 230.0f);                               /* the grip is below the screen's lower part */
+    }
+}
+
+/* The resting grip is off the bottom edge as well. */
+static void test_weapon_rest_grip_below_screen(void) {
+    CHECK(WEAPON_REST_Y >= SCREEN_H);
 }
 
 static void test_impact_star(void) {
@@ -439,6 +451,102 @@ static void test_game_weapon_rigs(void) {
     CHECK_EQ_INT(g.wrigs[W_BAT].w, 77);
 }
 
+
+/* ---- Task 18a: floor range patch ---- */
+
+static int index_of_dim25(const RenderList* rl) {
+    for (int i = 0; i < rl->n; i++)
+        if (rl->cmd[i].type == RC_POLY && rl->cmd[i].pattern == PAT_DIM25) return i;
+    return -1;
+}
+
+static int dim25_count(const RenderList* rl) {
+    int n = 0;
+    for (int i = 0; i < rl->n; i++) n += rl->cmd[i].type == RC_POLY && rl->cmd[i].pattern == PAT_DIM25;
+    return n;
+}
+
+static void test_reach_patch_in_play_only(void) {
+    static Game g;
+    GameInput in = no_input();
+    game_init(&g, 5);
+    game_update(&g, &in);
+    game_render(&g);
+    CHECK_EQ_INT(dim25_count(&g.rl), 1);
+    g.mode = MODE_TITLE;
+    game_render(&g);
+    CHECK_EQ_INT(dim25_count(&g.rl), 0);
+    g.mode = MODE_GAME_OVER;
+    game_render(&g);
+    CHECK_EQ_INT(dim25_count(&g.rl), 0);
+}
+
+static void test_reach_patch_drawn_before_dummies(void) {
+    static Game g;
+    GameInput in = no_input();
+    int first_bitmap = -1, i;
+    game_init(&g, 5);
+    game_update(&g, &in);
+    i = dummy_spawn(&g.dummies, DS_MEDIUM, 0.0f, 2.0f, -1);
+    g.dummies.d[i].state = DST_WALK;
+    game_render(&g);
+    for (i = 0; i < g.rl.n; i++) if (g.rl.cmd[i].type == RC_BITMAP) { first_bitmap = i; break; }
+    CHECK(first_bitmap > 0);
+    CHECK(index_of_dim25(&g.rl) >= 0 && index_of_dim25(&g.rl) < first_bitmap);
+}
+
+static float poly_min_x(const RenderCmd* c) {
+    float m = 1e9f;
+    for (int i = 0; i < c->npts; i++) if ((float)c->pts[2 * i] < m) m = (float)c->pts[2 * i];
+    return m;
+}
+
+static float poly_max_x(const RenderCmd* c) {
+    float m = -1e9f;
+    for (int i = 0; i < c->npts; i++) if ((float)c->pts[2 * i] > m) m = (float)c->pts[2 * i];
+    return m;
+}
+
+static void test_reach_patch_follows_dpad_side(void) {
+    static Game g;
+    GameInput in = no_input();
+    float cx[3] = { 0.0f, 0.0f, 0.0f };
+    const uint8_t btn[3] = { BTN_LEFT, 0, BTN_RIGHT };
+    game_init(&g, 5);
+    for (int k = 0; k < 3; k++) {
+        int idx;
+        in.held = btn[k];
+        game_update(&g, &in);
+        game_render(&g);
+        idx = index_of_dim25(&g.rl);
+        CHECK(idx >= 0);
+        if (idx >= 0) cx[k] = 0.5f * (poly_min_x(&g.rl.cmd[idx]) + poly_max_x(&g.rl.cmd[idx]));
+    }
+    CHECK(cx[0] < cx[1] - 5.0f);
+    CHECK(cx[2] > cx[1] + 5.0f);
+}
+
+static void test_reach_patch_clamped_to_walls(void) {
+    static Game g;
+    GameInput in = no_input();
+    Vec3 wl = { -HALL_HALF_W, 0.0f, 0.0f }, wr = { HALL_HALF_W, 0.0f, 0.0f };
+    float lx, rx, y, ppm;
+    int idx;
+    game_init(&g, 5);
+    in.held = BTN_RIGHT;      /* centre 0.6 plus the arc passes the right wall */
+    game_update(&g, &in);
+    game_render(&g);
+    idx = index_of_dim25(&g.rl);
+    CHECK(idx >= 0);
+    wl.z = g.cam.player_z + NEAR_Z; wr.z = wl.z;   /* the near edge is the widest */
+    CHECK(camera_project(&g.cam, wl, &lx, &y, &ppm));
+    CHECK(camera_project(&g.cam, wr, &rx, &y, &ppm));
+    if (idx >= 0) {
+        CHECK(poly_max_x(&g.rl.cmd[idx]) <= rx + 1.0f);
+        CHECK(poly_min_x(&g.rl.cmd[idx]) >= lx - 1.0f);
+    }
+}
+
 void suite_draw_world(void) {
     test_hallway_emits_geometry();
     test_hallway_scrolls();
@@ -456,6 +564,11 @@ void suite_draw_world(void) {
     test_rl_offset();
     test_hurt_shake();
     test_hurt_shake_offsets_world_only();
+    test_weapon_rest_grip_below_screen();
+    test_reach_patch_in_play_only();
+    test_reach_patch_drawn_before_dummies();
+    test_reach_patch_follows_dpad_side();
+    test_reach_patch_clamped_to_walls();
     test_impacts_spawn_and_expire();
     test_impacts_capped_at_eight();
     test_game_weapon_rigs();

@@ -9,10 +9,12 @@
 #include "swing.h"
 #include "ragdoll.h"
 
-/* Builds the world layer of a frame: hallway, doors, then far-to-near sorted dummies and ragdolls (ragdolls may be NULL). */
+/* Builds the world layer of a frame: hallway, the weapon's floor range patch (reach_weapon, NULL for none; reach_side
+   -1/0/+1 from the D-pad), doors, then far-to-near sorted dummies and ragdolls (ragdolls may be NULL). */
 void draw_world(RenderList* rl, const Camera* cam, const Hallway* hall,
                 const DummyPool* dummies, const DummyRig rigs[DS_COUNT],
-                const RagdollPool* ragdolls, int frame);
+                const RagdollPool* ragdolls, int frame,
+                const WeaponDef* reach_weapon, int reach_side);
 
 /* The weapon, screen-space: resting at the bottom right, or sweeping around a pivot below the
    screen with speed lines. No hands. image is the held-weapon ImageId. */

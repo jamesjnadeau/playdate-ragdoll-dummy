@@ -11,8 +11,9 @@
 #include <stdbool.h>
 
 typedef enum { RC_POLY, RC_LINE, RC_BITMAP, RC_TEXT, RC_RECT } RcType;
-typedef enum { PAT_WHITE, PAT_BLACK, PAT_D25, PAT_D50, PAT_D75, PAT_DIM } Pattern;
+typedef enum { PAT_WHITE, PAT_BLACK, PAT_D25, PAT_D50, PAT_D75, PAT_DIM, PAT_DIM25 } Pattern;
 /* PAT_DIM: a 50% black checker whose other pixels are transparent, so what is under it shows through.
+ * PAT_DIM25 is the same with a 25% black dither (the floor range patch).
  * Every other pattern is opaque. Used for the dim behind panels. */
 
 /*

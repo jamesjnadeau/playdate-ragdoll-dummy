@@ -28,18 +28,27 @@ static Vec3 launch_vector(const Swing* s, const WeaponDef* w) {
     return v3_scale(v, k);
 }
 
+void combat_reach_area(const WeaponDef* w, int side, float* x0, float* x1, float* z0, float* z1) {
+    float cx = (float)side * ARM_SIDE_OFFSET;
+    *x0 = cx - w->arc;
+    *x1 = cx + w->arc;
+    *z0 = 0.0f;
+    *z1 = w->reach;
+}
+
 int combat_resolve(const Swing* s, const WeaponDef* w, int aim, float player_z,
                    DummyPool* pool, HitResult* out, int max_out) {
     int i, n = 0;
-    float cx = (float)s->side * ARM_SIDE_OFFSET;
+    float ax0, ax1, az0, az1;
+    combat_reach_area(w, (int)s->side, &ax0, &ax1, &az0, &az1);
     for (i = 0; i < MAX_DUMMIES && n < max_out; i++) {
         Dummy* d = &pool->d[i];
         HitResult* h;
         float dz;
         if (!d->alive || d->state == DST_EMERGING || d->state == DST_RAGDOLL || d->state == DST_DEAD) continue;
         dz = d->z - player_z;
-        if (!(dz > 0.0f && dz <= w->reach)) continue;
-        if (fabsf(d->x - cx) > w->arc) continue;
+        if (!(dz > az0 && dz <= az1)) continue;
+        if (d->x < ax0 || d->x > ax1) continue;
 
         h = &out[n++];
         h->dummy = i;

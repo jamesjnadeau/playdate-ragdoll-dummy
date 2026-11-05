@@ -136,12 +136,14 @@
 #define PICKUP_BOB_PX 3.0f           /* bob amplitude on screen */
 #define PICKUP_BOB_RAD_PER_FRAME 0.25f
 /* Weapon drawing (screen px, degrees; 0 deg points the weapon straight up). */
-#define WEAPON_REST_X 352.0f
-#define WEAPON_REST_Y 262.0f
+/* Owner-tuned (playtest 1): the sweep crosses the lower-middle of the screen (head about y 170 at mid-sweep)
+   and the grip stays below the bottom edge, so only a little of the handle shows. */
+#define WEAPON_REST_X 352.0f         /* resting grip position; the grip is off the bottom edge */
+#define WEAPON_REST_Y 300.0f
 #define WEAPON_REST_DEG -53.0f
-#define WEAPON_PIVOT_X 200.0f
-#define WEAPON_PIVOT_Y 300.0f
-#define WEAPON_SWEEP_RADIUS 150.0f
+#define WEAPON_PIVOT_X 200.0f        /* sweep pivot, below the screen */
+#define WEAPON_PIVOT_Y 400.0f
+#define WEAPON_SWEEP_RADIUS 60.0f    /* grip distance from the pivot */
 #define WEAPON_SIDE_DEG 70.0f
 #define WEAPON_VERT_NEAR_DEG 20.0f
 #define WEAPON_VERT_FAR_DEG 160.0f
