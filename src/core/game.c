@@ -165,30 +165,27 @@ static void spawn_from_doors(Game* g) {
     }
 }
 
-/* Adds a star for each hit at the projected head or body point of the struck dummy. */
+/* Adds a star for each hit at the weapon's screen contact point. */
 static void spawn_impacts(Game* g) {
     int i, k;
     for (i = 0; i < g->nhits; i++) {
         const HitResult* h = &g->hits[i];
         const Dummy* d;
-        const DummyRig* rig;
         Vec3 w;
         float sx, sy, ppm;
         Impact* slot = &g->impacts[0];
         if (h->dummy < 0 || h->dummy >= MAX_DUMMIES) continue;
         d = &g->dummies.d[h->dummy];
-        rig = &g->rigs[d->size];
-        w.x = d->x; w.z = d->z;
-        w.y = -(h->head ? rig->face_center.y : rig->body_center.y) / rig->height_px * dummy_height(d->size);
-        if (!camera_project(&g->cam, w, &sx, &sy, &ppm)) continue;
+        w.x = d->x; w.y = 0.0f; w.z = d->z;
+        if (!camera_project(&g->cam, w, &sx, &sy, &ppm)) continue;   /* only for the star's size */
         for (k = 0; k < MAX_IMPACTS; k++) {   /* a free slot, else recycle the oldest */
             if (g->impacts[k].t <= 0) { slot = &g->impacts[k]; break; }
             if (g->impacts[k].t < slot->t) slot = &g->impacts[k];
         }
         slot->r = clampf(ppm * IMPACT_R_PER_PPM, IMPACT_MIN_R, IMPACT_MAX_R);
         /* A close dummy's body can sit below the screen: keep the whole star visible. */
-        slot->x = clampf(sx, slot->r, SCREEN_W - slot->r);
-        slot->y = clampf(sy, slot->r, SCREEN_H - slot->r);
+        slot->x = clampf(h->sx, slot->r, SCREEN_W - slot->r);
+        slot->y = clampf(h->sy, slot->r, SCREEN_H - slot->r);
         slot->t = IMPACT_FRAMES;
     }
 }
@@ -226,7 +223,7 @@ static void offer_update(Game* g, const GameInput* in) {
     if (!(in->pressed & (BTN_A | BTN_B))) return;
     if (in->pressed & BTN_A) {
         g->weapon = g->offer;
-        memset(&g->swing, 0, sizeof(g->swing));   /* a swing in progress belonged to the old weapon */
+        memset(&g->wp, 0, sizeof(g->wp));   /* a swing in progress belonged to the old weapon */
     }
     g->pickup_z = -1.0f;
     g->mode = MODE_PLAY;
@@ -294,28 +291,25 @@ void game_update(Game* g, const GameInput* in) {
         g->pending_damage += dmg;
     }
 
-    /* Swing. The crank jump on the frame it leaves the dock must not count as a swing. */
-    g->nhits = 0;
+    /* The crank drives the weapon; its sweep this frame is what hits. weapon_update ignores the undock jump. */
     {
-        GameInput si = *in;
         const WeaponDef* w = weapon_def(g->weapon);
-        if (g->prev_docked && !in->crank_docked) si.crank_delta = 0.0f;
-        g->prev_docked = in->crank_docked;
-        SwingEvent se = swing_update(&g->swing, &si, w);
-        if (se == SWE_STARTED) game_push_sound(g, SND_SWING);
-        if (se == SWE_IMPACT) {
-            g->nhits = combat_resolve(&g->swing, w, g->cam.aim, g->player.z, &g->dummies,
-                                      g->hits, (int)(sizeof(g->hits) / sizeof(g->hits[0])));
-            for (i = 0; i < g->nhits; i++) {
-                const HitResult* h = &g->hits[i];
-                game_push_sound(g, h->damage >= HIT_HEAVY_DAMAGE ? SND_HIT_HEAVY : SND_HIT_LIGHT);
-                if (h->knockout) {   /* scored the moment the dummy goes down */
-                    Dummy* d = &g->dummies.d[h->dummy];
-                    if (!d->scored) { d->scored = true; g->bags++; }
-                    game_push_sound(g, SND_GRUNT);
-                }
+        bool was_attached = g->wp.attached;
+        float prev_speed = fabsf(g->wp.vel);
+        weapon_update(&g->wp, in, w);
+        g->nhits = contact_sweep(&g->wp, w, &g->wrigs[g->weapon], &g->cam, &g->dummies, g->rigs, g->frame,
+                                 g->hits, (int)(sizeof(g->hits) / sizeof(g->hits[0])));
+        if (prev_speed < SPEED_LINE_MIN_VEL && fabsf(g->wp.vel) >= SPEED_LINE_MIN_VEL) game_push_sound(g, SND_SWING);
+        for (i = 0; i < g->nhits; i++) {
+            const HitResult* h = &g->hits[i];
+            game_push_sound(g, h->damage >= HIT_HEAVY_DAMAGE ? SND_HIT_HEAVY : SND_HIT_LIGHT);
+            if (h->knockout) {   /* scored the moment the dummy goes down */
+                Dummy* d = &g->dummies.d[h->dummy];
+                if (!d->scored) { d->scored = true; g->bags++; }
+                game_push_sound(g, SND_GRUNT);
             }
         }
+        if (was_attached && !g->wp.attached && g->wp.live) game_push_sound(g, SND_HIT_LIGHT);   /* a bounce */
     }
     spawn_impacts(g);
     spawn_teeth(g);
@@ -382,7 +376,7 @@ void game_render(Game* g) {
     draw_particles(&g->rl, &g->cam, &g->particles);
     for (i = 0; i < MAX_IMPACTS; i++)
         if (g->impacts[i].t > 0) draw_impact(&g->rl, g->impacts[i].x, g->impacts[i].y, g->impacts[i].r);
-    draw_weapon(&g->rl, &g->swing, &g->wrigs[g->weapon], IMG_WEAPON_HELD0 + (int)g->weapon);
+    draw_weapon(&g->rl, &g->wp, &g->wrigs[g->weapon], IMG_WEAPON_HELD0 + (int)g->weapon);
     rl_hud_begin(&g->rl);   /* always: everything drawn from here on (HUD, panels) fits however busy the world was */
     if (g->mode == MODE_PLAY || g->mode == MODE_OFFER) hud_draw_play(&g->rl, g);
     if (g->mode == MODE_OFFER) {

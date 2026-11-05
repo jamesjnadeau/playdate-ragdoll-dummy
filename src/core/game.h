@@ -11,7 +11,8 @@
 #include "dummy.h"
 #include "player.h"
 #include "rig.h"
-#include "swing.h"
+#include "weapon_motion.h"
+#include "contact.h"
 #include "combat.h"
 #include "ragdoll.h"
 #include "particles.h"
@@ -35,13 +36,12 @@ typedef struct Game {
     DummyRig rigs[DS_COUNT];
     int pending_damage;   /* damage dealt to the player, consumed by the next player_update */
     int frame;
-    Swing swing;
+    Weapon wp;            /* the crank-driven weapon */
     WeaponId weapon;
     GameMode mode;        /* MODE_TITLE, PLAY, OFFER and GAME_OVER are implemented; SKINS and CREDITS come later */
     WeaponId offer;       /* the weapon the pickup offers */
     float pickup_z;       /* -1 when there is no pickup on the floor */
     int offer_doors_seen; /* doors_emptied at the end of the last update, to spot new offers */
-    bool prev_docked;     /* crank dock state last frame, to swallow the undock jump */
     HitResult hits[16];   /* this frame's hits, for effects and sounds */
     int nhits;
     WeaponRig wrigs[WEAPON_COUNT];   /* grip/tip and image size of each held weapon */

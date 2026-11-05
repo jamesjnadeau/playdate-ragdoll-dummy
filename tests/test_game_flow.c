@@ -1,3 +1,4 @@
+#include <math.h>
 #include <string.h>
 #include "test.h"
 #include "game.h"
@@ -115,7 +116,7 @@ static void test_offer_pauses_world(void) {
     RagdollPool rp;
     ParticlePool pp;
     Impact imp[MAX_IMPACTS];
-    Swing sw;
+    Weapon sw;
     int hurt;
     memset(&in, 0, sizeof(in));
     start(3);
@@ -130,7 +131,7 @@ static void test_offer_pauses_world(void) {
     g_.particles.p[0].active = true; g_.particles.p[0].life = 50; g_.particles.p[0].p.y = 2.0f;
     g_.impacts[0].t = 3; g_.hurt_t = 4;
     memcpy(&rp, &g_.ragdolls, sizeof(rp)); memcpy(&pp, &g_.particles, sizeof(pp));
-    memcpy(imp, g_.impacts, sizeof(imp)); memcpy(&sw, &g_.swing, sizeof(sw)); hurt = g_.hurt_t;
+    memcpy(imp, g_.impacts, sizeof(imp)); memcpy(&sw, &g_.wp, sizeof(sw)); hurt = g_.hurt_t;
     in.held = BTN_A;
     in.crank_delta = 30.0f;
     for (i = 0; i < 30; i++) game_update(&g_, &in);
@@ -140,7 +141,7 @@ static void test_offer_pauses_world(void) {
     CHECK(memcmp(&rp, &g_.ragdolls, sizeof(rp)) == 0);
     CHECK(memcmp(&pp, &g_.particles, sizeof(pp)) == 0);
     CHECK(memcmp(imp, g_.impacts, sizeof(imp)) == 0);
-    CHECK(memcmp(&sw, &g_.swing, sizeof(sw)) == 0);
+    CHECK(memcmp(&sw, &g_.wp, sizeof(sw)) == 0);
     CHECK_EQ_INT(g_.hurt_t, hurt);
 }
 
@@ -247,7 +248,7 @@ static void test_particle_cap_leaves_room_for_weapon_and_impacts(void) {
     CHECK(g_.rl.n > 600);   /* some particles did draw ... */
     CHECK(g_.rl.n <= RL_MAX_CMDS - RL_HUD_RESERVE - PARTICLE_CMD_RESERVE);   /* ... but only up to the world ceiling minus the reserve */
     for (i = 0; i < MAX_IMPACTS; i++) draw_impact(&g_.rl, 50.0f + 40.0f * (float)i, 100.0f, 20.0f);
-    draw_weapon(&g_.rl, &g_.swing, &g_.wrigs[g_.weapon], IMG_WEAPON_HELD0 + (int)g_.weapon);
+    draw_weapon(&g_.rl, &g_.wp, &g_.wrigs[g_.weapon], IMG_WEAPON_HELD0 + (int)g_.weapon);
     CHECK_EQ_INT(g_.rl.dropped, 0);
     for (i = 0; i < g_.rl.n; i++) {
         weapon += g_.rl.cmd[i].type == RC_BITMAP && g_.rl.cmd[i].image == IMG_WEAPON_HELD0 + (int)g_.weapon;
@@ -495,21 +496,38 @@ static void test_bests_survive_a_worse_run(void) {
     CHECK_EQ_INT(g_.seen_new_best, 0);
 }
 
+/* One docked frame, so the next undocked frame picks the weapon up at the crank angle. */
+static void dock(void) {
+    GameInput in;
+    memset(&in, 0, sizeof(in));
+    in.crank_docked = true;
+    game_update(&g_, &in);
+}
+
 static void test_sound_events(void) {
     GameInput in;
-    int counts[SND_COUNT];
+    int counts[SND_COUNT], i;
     memset(&in, 0, sizeof(in));
     memset(counts, 0, sizeof(counts));
     start(3);
+    for (i = 0; i < g_.hall.ndoors; i++) g_.hall.doors[i].remaining = 0;
+    dock();
+    in.crank_angle = -60.0f;
+    game_update(&g_, &in);                 /* undock: the weapon jumps to the crank, silently */
+    CHECK_EQ_INT(count_sound(&g_, SND_SWING), 0);
     in.crank_delta = 30.0f;
-    game_update(&g_, &in);
-    CHECK_EQ_INT(g_.nsounds, 1);
+    for (i = 0; i < 10 && count_sound(&g_, SND_SWING) == 0; i++) {
+        in.crank_angle += in.crank_delta;
+        game_update(&g_, &in);
+    }
     CHECK_EQ_INT(count_sound(&g_, SND_SWING), 1);
-    in.crank_delta = 0.0f;
+    CHECK(fabsf(g_.wp.vel) >= SPEED_LINE_MIN_VEL);
+    in.crank_angle += in.crank_delta;
     game_update(&g_, &in);
-    CHECK_EQ_INT(g_.nsounds, 0);   /* cleared at the start of each update */
+    CHECK_EQ_INT(count_sound(&g_, SND_SWING), 0);   /* still fast: once per rise, not per frame */
+    in.crank_delta = 0.0f;
     tally(30, &in, counts);
-    CHECK_EQ_INT(counts[SND_SWING], 0);   /* once per swing */
+    CHECK_EQ_INT(counts[SND_SWING], 0);   /* settling does not swing again */
     /* cleared in the other modes too */
     g_.sounds[0] = SND_BURST; g_.nsounds = 1;
     g_.mode = MODE_OFFER;
@@ -517,69 +535,157 @@ static void test_sound_events(void) {
     CHECK_EQ_INT(g_.nsounds, 0);
 }
 
-/* A dummy in reach of a swing with `w`: returns the sounds the whole swing makes. */
-static void swing_at_dummy(WeaponId w, float hp, int counts[SND_COUNT]) {
-    GameInput in;
+/* A swing log: sounds summed over the frames, and how the hits fell across them. */
+typedef struct { int counts[SND_COUNT]; int hit_frames, one_hit_frames; } SwingLog;
+
+static void log_frame(SwingLog* log) {
+    int s;
+    for (s = 0; s < SND_COUNT; s++) log->counts[s] += count_sound(&g_, (SoundId)s);
+    log->hit_frames += g_.nhits > 0;
+    log->one_hit_frames += g_.nhits == 1;
+}
+
+/* Clears the doors and places one dummy straight ahead. Returns its slot. */
+static int place_dummy(DummySize size, DummyState state, float ahead, float hp) {
     int d, i;
-    memset(&in, 0, sizeof(in));
-    memset(counts, 0, SND_COUNT * sizeof(int));
-    start(3);
     for (i = 0; i < g_.hall.ndoors; i++) g_.hall.doors[i].remaining = 0;
-    g_.weapon = w;
-    d = dummy_spawn(&g_.dummies, DS_SMALL, 0.0f, g_.player.z + 0.9f, -1);
-    g_.dummies.d[d].state = DST_STAGGER;
+    d = dummy_spawn(&g_.dummies, size, 0.0f, g_.player.z + ahead, -1);
+    g_.dummies.d[d].state = state;
     g_.dummies.d[d].timer = 100;
     g_.dummies.d[d].hp = hp;
-    in.crank_delta = 30.0f;
-    for (i = 0; i < 24; i++) {
-        int s;
+    return d;
+}
+
+/* Undocks the crank at -60 deg, turns it +20 a frame for 8 frames, then lets it settle.
+   A staggered dummy (`hold` >= 0) is kept staggered so it stays put. */
+static void crank_swing(int hold, int settle, SwingLog* log) {
+    GameInput in;
+    int i;
+    memset(&in, 0, sizeof(in));
+    memset(log, 0, sizeof(*log));
+    dock();
+    in.crank_angle = -60.0f;
+    game_update(&g_, &in);
+    log_frame(log);
+    in.crank_delta = 20.0f;
+    for (i = 0; i < 8 + settle; i++) {
+        if (i == 8) in.crank_delta = 0.0f;
+        in.crank_angle += in.crank_delta;
+        if (hold >= 0) g_.dummies.d[hold].timer = 100;
         game_update(&g_, &in);
-        for (s = 0; s < SND_COUNT; s++) counts[s] += count_sound(&g_, (SoundId)s);
-        in.crank_delta = 0.0f;
-        g_.dummies.d[d].timer = 100;
+        log_frame(log);
     }
 }
 
+/* A dummy in reach of a crank swing with `w`: the sounds the whole swing makes. */
+static void swing_at_dummy(WeaponId w, float hp, SwingLog* log) {
+    int d;
+    start(3);
+    g_.weapon = w;
+    d = place_dummy(DS_SMALL, DST_STAGGER, 0.9f, hp);
+    crank_swing(d, 12, log);
+}
+
+static void test_crank_swing_hits_dummy(void) {
+    SwingLog log;
+    int d;
+    start(3);
+    d = place_dummy(DS_MEDIUM, DST_WALK, 1.2f, 100.0f);
+    crank_swing(-1, 0, &log);
+    CHECK(g_.dummies.d[d].hp < 100.0f);
+    CHECK_EQ_INT(log.hit_frames, 1);
+    CHECK_EQ_INT(log.one_hit_frames, 1);
+}
+
+static void test_accepting_offer_resets_weapon(void) {
+    GameInput in;
+    int i;
+    memset(&in, 0, sizeof(in));
+    start(3);
+    place_dummy(DS_MEDIUM, DST_STAGGER, 1.2f, 100.0f);
+    dock();
+    in.crank_angle = -60.0f;
+    game_update(&g_, &in);
+    in.crank_delta = 20.0f;
+    for (i = 0; i < 2; i++) { in.crank_angle += 20.0f; game_update(&g_, &in); }
+    CHECK(g_.wp.live && g_.wp.vel > 0.0f);   /* mid-swing */
+    g_.offer = W_SLEDGE;
+    g_.mode = MODE_OFFER;
+    memset(&in, 0, sizeof(in));
+    in.pressed = BTN_A;
+    game_update(&g_, &in);
+    CHECK_EQ_INT(g_.mode, MODE_PLAY);
+    CHECK_EQ_INT(g_.weapon, W_SLEDGE);
+    memset(&in, 0, sizeof(in));
+    in.crank_angle = 20.0f;
+    in.crank_delta = 40.0f;
+    game_update(&g_, &in);
+    CHECK(!g_.wp.swept);
+    CHECK_EQ_INT(g_.nhits, 0);
+}
+
+static void test_undock_frame_never_hits(void) {
+    GameInput in;
+    int i, d;
+    memset(&in, 0, sizeof(in));
+    start(3);
+    g_.weapon = W_SLEDGE;
+    d = place_dummy(DS_MEDIUM, DST_STAGGER, 1.2f, 100.0f);
+    in.crank_docked = true;
+    for (i = 0; i < 3; i++) { g_.dummies.d[d].timer = 100; game_update(&g_, &in); }
+    in.crank_docked = false;
+    in.crank_angle = 60.0f;
+    in.crank_delta = 120.0f;   /* the crank swung through the dummy while docked */
+    game_update(&g_, &in);
+    CHECK(!g_.wp.swept);
+    CHECK_EQ_INT(g_.nhits, 0);
+    CHECK_NEAR(g_.dummies.d[d].hp, 100.0f, 1e-6f);
+}
+
 static void test_sound_hit_light_and_heavy(void) {
-    int c[SND_COUNT];
-    swing_at_dummy(W_CHICKEN, 100.0f, c);
-    CHECK_EQ_INT(c[SND_SWING], 1);
-    CHECK_EQ_INT(c[SND_HIT_LIGHT], 1);
-    CHECK_EQ_INT(c[SND_HIT_HEAVY], 0);
-    CHECK_EQ_INT(c[SND_GRUNT], 0);
-    swing_at_dummy(W_SLEDGE, 100.0f, c);
-    CHECK_EQ_INT(c[SND_HIT_HEAVY], 1);
-    CHECK_EQ_INT(c[SND_HIT_LIGHT], 0);
+    SwingLog log;
+    swing_at_dummy(W_CHICKEN, 100.0f, &log);
+    CHECK_EQ_INT(log.counts[SND_SWING], 1);
+    CHECK(log.counts[SND_HIT_LIGHT] >= 1);   /* the hit, and the bounce if the chicken bounces */
+    CHECK_EQ_INT(log.counts[SND_HIT_HEAVY], 0);
+    CHECK_EQ_INT(log.counts[SND_GRUNT], 0);
+    CHECK_EQ_INT(log.hit_frames, 1);
+    /* The lagging sledge goes through; the push-back can take the dummy off it and back on in one stroke. */
+    swing_at_dummy(W_SLEDGE, 100.0f, &log);
+    CHECK(log.counts[SND_HIT_HEAVY] >= 1);
+    CHECK_EQ_INT(log.counts[SND_HIT_LIGHT], 0);   /* no light hit and no bounce */
 }
 
 static void test_sound_grunt_on_knockout_and_bag_scored_at_once(void) {
-    int c[SND_COUNT];
-    swing_at_dummy(W_BAT, 0.1f, c);
-    CHECK_EQ_INT(c[SND_GRUNT], 1);
+    SwingLog log;
+    swing_at_dummy(W_BAT, 0.1f, &log);
+    CHECK_EQ_INT(log.counts[SND_GRUNT], 1);
     CHECK_EQ_INT(g_.bags >= 1 ? 1 : 0, 1);
 }
 
 /* The knockout bag is scored when the dummy goes down, so dying that same frame still counts it. */
 static void test_death_frame_knockout_counts(void) {
+    static Game before;
     GameInput in;
     int d, i;
     memset(&in, 0, sizeof(in));
     start(3);
     game_apply_bests(&g_, 0, 0);
-    for (i = 0; i < g_.hall.ndoors; i++) g_.hall.doors[i].remaining = 0;
     g_.weapon = W_BAT;
-    d = dummy_spawn(&g_.dummies, DS_SMALL, 0.0f, g_.player.z + 0.9f, -1);
-    g_.dummies.d[d].state = DST_STAGGER;
-    g_.dummies.d[d].timer = 100;
-    g_.dummies.d[d].hp = 0.1f;
-    in.crank_delta = 30.0f;
+    d = place_dummy(DS_SMALL, DST_STAGGER, 0.9f, 0.1f);
+    dock();
+    in.crank_angle = -60.0f;
     game_update(&g_, &in);
-    in.crank_delta = 0.0f;
-    for (i = 0; i < 40 && !(g_.swing.phase == SWS_SWEEP && g_.swing.t == 2); i++) {
+    in.crank_delta = 20.0f;
+    for (i = 0; i < 20; i++) {   /* find the impact frame, keeping the world from the frame before it */
+        in.crank_angle += in.crank_delta;
         g_.dummies.d[d].timer = 100;
+        before = g_;
         game_update(&g_, &in);
+        if (g_.nhits > 0) break;
     }
-    CHECK_EQ_INT(g_.swing.phase, SWS_SWEEP);
+    CHECK(g_.nhits > 0);
+    g_ = before;
     CHECK_EQ_INT(g_.bags, 0);
     g_.player.hearts = 1;
     g_.pending_damage = 9;         /* the player dies on the very frame of the impact */
@@ -774,6 +880,9 @@ void suite_game_flow(void) {
     test_game_over_screen();
     test_bests_survive_a_worse_run();
     test_sound_events();
+    test_crank_swing_hits_dummy();
+    test_accepting_offer_resets_weapon();
+    test_undock_frame_never_hits();
     test_sound_hit_light_and_heavy();
     test_sound_grunt_on_knockout_and_bag_scored_at_once();
     test_death_frame_knockout_counts();

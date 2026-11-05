@@ -51,13 +51,6 @@
 #define DUMMY_HIT_PUSHBACK 0.35f
 #define DUMMY_EMERGE_FRAMES 15
 #define REACTION_FRAMES 12
-#define SWING_TRIGGER_DEG 12.0f      /* crank degrees in one frame to start */
-#define SWING_WINDOW 4               /* frames to measure peak speed */
-#define SWING_SPEED_REF 30.0f        /* deg/frame that gives factor 1.0 */
-#define SWING_FACTOR_MIN 0.5f
-#define SWING_FACTOR_MAX 1.5f
-#define SWING_SWEEP_FRAMES 6
-#define SWING_RECOVER_FRAMES 8
 #define HEAD_MULT 1.5f
 #define GRAVITY 9.8f
 #define RAGDOLL_ITER 4
@@ -136,20 +129,15 @@
 #define PICKUP_BOB_PX 3.0f           /* bob amplitude on screen */
 #define PICKUP_BOB_RAD_PER_FRAME 0.25f
 /* Weapon drawing (screen px, degrees; 0 deg points the weapon straight up). */
-/* Owner-tuned (playtest 1): the sweep crosses the lower-middle of the screen (head about y 170 at mid-sweep)
-   and the grip stays below the bottom edge, so only a little of the handle shows. */
-#define WEAPON_REST_X 352.0f         /* resting grip position; the grip is off the bottom edge */
-#define WEAPON_REST_Y 300.0f
-#define WEAPON_REST_DEG -53.0f
+/* The weapon turns about a pivot below the screen; held upright, the bat's head is about y 147. */
 #define WEAPON_PIVOT_X 200.0f        /* sweep pivot, below the screen */
-#define WEAPON_PIVOT_Y 400.0f
+#define WEAPON_PIVOT_Y 376.0f
 #define WEAPON_SWEEP_RADIUS 60.0f    /* grip distance from the pivot */
-#define WEAPON_SIDE_DEG 70.0f
-#define WEAPON_VERT_NEAR_DEG 20.0f
-#define WEAPON_VERT_FAR_DEG 160.0f
 #define SPEED_LINES 3
 #define SPEED_LINE_GAP_DEG 6.0f
 #define SPEED_LINE_LEN_DEG 22.0f
+#define SPEED_LINE_MIN_VEL 6.0f      /* deg/frame: faster draws speed lines and starts the swing sound */
+#define REACH_PATCH_HALF_W 1.2f      /* half width of the floor reach hint, m */
 /* Dummy hit boxes, as fractions of the rig height. */
 #define HIT_HEAD_HALF_W_FRAC 0.17f
 #define HIT_HEAD_H_FRAC 0.34f
