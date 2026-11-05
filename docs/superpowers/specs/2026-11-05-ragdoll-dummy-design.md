@@ -166,7 +166,9 @@ as in mockup A.
 alone sweeping across the screen: it rotates around a pivot below the
 screen edge, from the side the swing comes from to the other side (or
 bottom to top for an upward swing, top to bottom for a downward one), with
-speed lines. Weapon art is therefore a single image per weapon. HUD (Builder's call, from the mockup): hearts top left,
+speed lines. Weapon art is therefore a single image per weapon.
+
+HUD (Builder's call, from the mockup): hearts top left,
 distance in metres top centre, bag count top right, weapon name with speed
 and power bars bottom left, swing-direction indicator bottom centre.
 Taking damage: screen shake plus a one-frame inverted flash. Dummies never
