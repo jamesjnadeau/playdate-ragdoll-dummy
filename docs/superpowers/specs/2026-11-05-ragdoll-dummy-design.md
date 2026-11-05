@@ -447,9 +447,10 @@ Runs are deterministic.
   `core` pack.
 - **CI gates:** `--max-over-budget 0` on every scenario at 30 fps, plus a
   `--max-avg-ms` limit set from a measured baseline with headroom. Reports,
-  traces and screenshots are kept as build artifacts. Until a fitted
-  calibration profile for the owner's device exists, numbers are estimates;
-  use `calibration/rev-a.json` if it matches the owner's hardware.
+  traces and screenshots are kept as build artifacts.
+- **Calibration (Decided: the owner has a Rev A Playdate):** all runs use
+  the simulator's device-fitted `calibration/rev-a.json`, so the gates are
+  hard failures, not warnings.
 - **Agent skill:** copy the simulator's
   `.claude/skills/playdate-perf-test` skill into this repo so agents
   working here profile the game the same way.
@@ -467,6 +468,12 @@ Runs are deterministic.
 - **Pack validator** tests against good and broken sample packs.
 - Feel tuning (crank thresholds, reaction timing, ragdoll bounciness) needs
   play on real hardware; numbers here are starting points.
+- **Owner playtest (Decided):** the owner playtests on their Rev A Playdate
+  once there is a working version: a playable run with walking, swinging,
+  reactions, knockouts and bursts, built as a `.pdx` they can sideload.
+  Their feedback drives a tuning pass before the rest of the first release
+  is finished. Tuning values should live in one place (a single tuning
+  header or table) so that pass is quick.
 
 ## 13. Web version (future, not built now)
 
