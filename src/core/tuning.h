@@ -71,6 +71,8 @@
 #define RAGDOLL_HEAD_VEL 1.1f        /* launch velocity multipliers, for floppiness */
 #define RAGDOLL_FIST_VEL 1.2f
 #define RAGDOLL_LEAN 0.05f           /* spawn pose leans this much (m per m of height) so it topples */
+#define RAGDOLL_IMPACT_WINDOW 6      /* frames in which one impact is charged only once (max, not sum) */
+#define RAGDOLL_LAUNCH_SPIN 0.35f    /* head/base opposite horizontal velocity, fraction of launch speed */
 #define RAGDOLL_BOWL_PUSH 0.3f       /* m a bowled dummy is shoved along the ragdoll's velocity */
 #define RAGDOLL_BOWL_COOLDOWN 10     /* frames before the same ragdoll-dummy pair can hit again */
 #define RAGDOLL_BOWL_LAUNCH 0.6f     /* a bowled-out dummy flies at this fraction of the hitting speed */

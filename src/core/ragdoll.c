@@ -23,6 +23,7 @@ int ragdoll_spawn(RagdollPool* p, DummyPool* dummies, int dummy, const DummyRig*
     Vec2 rp[RP_COUNT];
     float m = dummy_height(d->size) / rig->height_px;
     Vec2 sh_mid;
+    Vec3 spin;
 
     for (i = 0; i < RAGDOLL_MAX; i++) {
         if (!p->r[i].active) { slot = i; break; }
@@ -51,9 +52,18 @@ int ragdoll_spawn(RagdollPool* p, DummyPool* dummies, int dummy, const DummyRig*
     rp[RP_ELBOW_R].x = rig->shoulder_r.x; rp[RP_ELBOW_R].y = rig->shoulder_r.y + rig->upper_arm_px;
     rp[RP_FIST_R].x = rp[RP_ELBOW_R].x;   rp[RP_FIST_R].y = rp[RP_ELBOW_R].y + rig->lower_arm_px;
 
+    {   /* head and base get opposite velocity, horizontal and perpendicular to the launch, so it tumbles */
+        float hl = sqrtf(launch.x * launch.x + launch.z * launch.z);
+        float sp = v3_len(launch) * RAGDOLL_LAUNCH_SPIN;
+        spin.y = 0.0f;
+        if (hl > 1e-4f) { spin.x = launch.z / hl * sp; spin.z = -launch.x / hl * sp; }   /* up x launch */
+        else { spin.x = sp; spin.z = 0.0f; }
+    }
     for (i = 0; i < RP_COUNT; i++) {
         float mul = (i == RP_HEAD) ? RAGDOLL_HEAD_VEL : (i == RP_FIST_L || i == RP_FIST_R) ? RAGDOLL_FIST_VEL : 1.0f;
         Vec3 v = v3_scale(launch, mul);
+        if (i == RP_HEAD) v = v3_add(v, spin);
+        if (i == RP_BASE) v = v3_sub(v, spin);
         r->p[i].x = d->x + rp[i].x * m;
         r->p[i].y = -rp[i].y * m;
         r->p[i].z = d->z + RAGDOLL_LEAN * r->p[i].y;   /* a slight lean so it topples instead of balancing */
@@ -66,8 +76,9 @@ int ragdoll_spawn(RagdollPool* p, DummyPool* dummies, int dummy, const DummyRig*
 
 typedef struct {
     float max_impact;          /* biggest normal impact speed this step (m/s) */
-    int slam_side;             /* wall side hit above RAGDOLL_IMPACT_MIN, 0 none */
-    float slam_z;
+    int nslam;                 /* wall hits above RAGDOLL_IMPACT_MIN, one per point */
+    int slam_side[RP_COUNT];
+    float slam_z[RP_COUNT];
 } Contacts;
 
 /* Clamps point i into the hallway box; with c set, also applies the velocity response and records impacts. */
@@ -75,6 +86,11 @@ static void collide(Ragdoll* r, int i, Contacts* c) {
     Vec3* p = &r->p[i];
     Vec3* pr = &r->prev[i];
     float v;
+    if (!c) {   /* position-only clamp: sticks may push a point into a surface, velocity is left alone */
+        p->x = clampf(p->x, -HALL_HALF_W, HALL_HALF_W);
+        p->y = clampf(p->y, 0.0f, HALL_H);
+        return;
+    }
     if (p->x > HALL_HALF_W || p->x < -HALL_HALF_W) {
         float s = p->x > 0.0f ? 1.0f : -1.0f;
         v = (p->x - pr->x) * s / DT;                      /* speed into the wall */
@@ -86,7 +102,7 @@ static void collide(Ragdoll* r, int i, Contacts* c) {
             pr->x = p->x + s * out * DT;
             if (c) {
                 if (v > c->max_impact) c->max_impact = v;
-                if (v > RAGDOLL_IMPACT_MIN) { c->slam_side = (int)s; c->slam_z = p->z; }
+                if (v > RAGDOLL_IMPACT_MIN) { c->slam_side[c->nslam] = (int)s; c->slam_z[c->nslam] = p->z; c->nslam++; }
             }
         }
     }
@@ -140,7 +156,7 @@ typedef struct { int dummy; Vec3 launch; } Pending;
 void ragdoll_step(RagdollPool* p, DummyPool* dummies, Hallway* hall, const DummyRig rigs[DS_COUNT],
                   RagdollStepOut* out) {
     Pending pend[MAX_PENDING];
-    int npend = 0, ri, i, di;
+    int npend = 0, ri, i, di, k;
     memset(out, 0, sizeof(*out));
 
     for (ri = 0; ri < RAGDOLL_MAX; ri++) {
@@ -163,14 +179,22 @@ void ragdoll_step(RagdollPool* p, DummyPool* dummies, Hallway* hall, const Dummy
         }
         solve_sticks(r);
 
-        if (c.max_impact > RAGDOLL_IMPACT_MIN) r->hp -= c.max_impact - RAGDOLL_IMPACT_MIN;
+        /* One impact is charged once: contact steps within the window only pay for the excess over what
+           the window has already charged (fists, head and body reach the wall on different steps). */
+        if (c.max_impact > RAGDOLL_IMPACT_MIN) {
+            float ex = c.max_impact - RAGDOLL_IMPACT_MIN;
+            if (ex > r->charged) { r->hp -= ex - r->charged; r->charged = ex; }
+            r->charge_t = RAGDOLL_IMPACT_WINDOW;
+        } else if (r->charge_t > 0 && --r->charge_t == 0) {
+            r->charged = 0.0f;
+        }
 
         /* Door slam: a hard wall hit inside an open door's span. */
-        if (hall && c.slam_side != 0) {
+        for (k = 0; hall && k < c.nslam; k++) {
             for (i = 0; i < hall->ndoors; i++) {
                 Door* dr = &hall->doors[i];
-                if (dr->state != DOOR_OPEN || dr->side != c.slam_side) continue;
-                if (c.slam_z < dr->z || c.slam_z > dr->z + DOOR_LEN) continue;
+                if (dr->state != DOOR_OPEN || dr->side != c.slam_side[k]) continue;
+                if (c.slam_z[k] < dr->z || c.slam_z[k] > dr->z + DOOR_LEN) continue;
                 dr->state = DOOR_CLOSED_FULL;
                 dr->leaf_angle = 0.0f;
                 for (di = 0; di < MAX_DUMMIES; di++) {
@@ -248,6 +272,12 @@ void ragdoll_step(RagdollPool* p, DummyPool* dummies, Hallway* hall, const Dummy
         }
     }
 
+    /* A freed dummy slot may be reused: no ragdoll keeps a cooldown for it. */
+    for (di = 0; di < MAX_DUMMIES; di++) {
+        if (dummies->d[di].alive) continue;
+        for (ri = 0; ri < RAGDOLL_MAX; ri++) p->r[ri].bowl_cd[di] = 0;
+    }
+
     /* Spawned after the loop so a recycled slot can never be one being stepped. */
     for (i = 0; i < npend; i++) {
         Dummy* d = &dummies->d[pend[i].dummy];
@@ -276,51 +306,69 @@ static void limb(RenderList* rl, int image, SP a, SP b, float rest_px, float s) 
 
 void draw_ragdoll(RenderList* rl, const Camera* cam, const Ragdoll* r, const DummyRig* rig) {
     SP s[RP_COUNT];
+    bool ok[RP_COUNT];
     float m = dummy_height(r->size) / rig->height_px;   /* metres per rig px */
-    float scale[RP_COUNT], sb, ang, sy, rest_px;
+    float scale[RP_COUNT], sb, ang, sy, rest_px, tilt;
     int i, sz = (int)r->size;
     SP mid, shl, shr;
-    float tilt;
+    bool body_ok;
 
+    /* A point that is behind the near plane or beyond the far plane only drops the parts that need it. */
     for (i = 0; i < RP_COUNT; i++) {
-        if (r->p[i].z - cam->player_z > FAR_Z) return;
-        if (!camera_project(cam, r->p[i], &s[i].x, &s[i].y, &s[i].ppm)) return;
-        scale[i] = s[i].ppm * m;   /* screen px per rig px at this point */
+        ok[i] = r->p[i].z - cam->player_z <= FAR_Z &&
+                camera_project(cam, r->p[i], &s[i].x, &s[i].y, &s[i].ppm);
+        scale[i] = ok[i] ? s[i].ppm * m : 0.0f;   /* screen px per rig px at this point */
     }
+    body_ok = ok[RP_BODY_LO] && ok[RP_BODY_HI];
     sb = 0.5f * (scale[RP_BODY_LO] + scale[RP_BODY_HI]);
 
-    ang = up_angle(s[RP_BASE], s[RP_BODY_LO]);
-    rl_bitmap(rl, img_dummy((DummySize)sz, PART_BASE), s[RP_BASE].x, s[RP_BASE].y, ang, 0.5f, 0.5f,
-              scale[RP_BASE], scale[RP_BASE], false);
+    if (ok[RP_BASE] && ok[RP_BODY_LO]) {
+        ang = up_angle(s[RP_BASE], s[RP_BODY_LO]);
+        rl_bitmap(rl, img_dummy((DummySize)sz, PART_BASE), s[RP_BASE].x, s[RP_BASE].y, ang, 0.5f, 0.5f,
+                  scale[RP_BASE], scale[RP_BASE], false);
+    }
 
     /* Torso: centred between the lower and upper body, stretched along its projected length. */
-    mid.x = 0.5f * (s[RP_BODY_LO].x + s[RP_BODY_HI].x);
-    mid.y = 0.5f * (s[RP_BODY_LO].y + s[RP_BODY_HI].y);
-    ang = up_angle(s[RP_BODY_LO], s[RP_BODY_HI]);
-    rest_px = r->rest[1] / m;
-    sy = dist2(s[RP_BODY_LO], s[RP_BODY_HI]) / rest_px;
-    rl_bitmap(rl, img_dummy((DummySize)sz, PART_BODY), mid.x, mid.y, ang, 0.5f, 0.5f, sb, sy < 0.02f ? 0.02f : sy, false);
+    ang = 0.0f;
+    if (body_ok) {
+        mid.x = 0.5f * (s[RP_BODY_LO].x + s[RP_BODY_HI].x);
+        mid.y = 0.5f * (s[RP_BODY_LO].y + s[RP_BODY_HI].y);
+        ang = up_angle(s[RP_BODY_LO], s[RP_BODY_HI]);
+        rest_px = r->rest[1] / m;
+        sy = dist2(s[RP_BODY_LO], s[RP_BODY_HI]) / rest_px;
+        rl_bitmap(rl, img_dummy((DummySize)sz, PART_BODY), mid.x, mid.y, ang, 0.5f, 0.5f, sb, sy < 0.02f ? 0.02f : sy, false);
+    }
 
     /* Arms hang from the shoulders, which sit either side of the upper body along its width axis. */
-    tilt = ang / RAD_TO_DEG;
-    shl.x = s[RP_BODY_HI].x + cosf(tilt) * rig->shoulder_l.x * scale[RP_BODY_HI];
-    shl.y = s[RP_BODY_HI].y + sinf(tilt) * rig->shoulder_l.x * scale[RP_BODY_HI];
-    shr.x = s[RP_BODY_HI].x + cosf(tilt) * rig->shoulder_r.x * scale[RP_BODY_HI];
-    shr.y = s[RP_BODY_HI].y + sinf(tilt) * rig->shoulder_r.x * scale[RP_BODY_HI];
-    shl.ppm = shr.ppm = s[RP_BODY_HI].ppm;
-    limb(rl, img_dummy((DummySize)sz, PART_ARM_UPPER), shl, s[RP_ELBOW_L], rig->upper_arm_px, scale[RP_ELBOW_L]);
-    limb(rl, img_dummy((DummySize)sz, PART_ARM_LOWER), s[RP_ELBOW_L], s[RP_FIST_L], rig->lower_arm_px, scale[RP_ELBOW_L]);
-    rl_bitmap(rl, img_dummy((DummySize)sz, PART_FIST), s[RP_FIST_L].x, s[RP_FIST_L].y,
-              down_angle(s[RP_ELBOW_L], s[RP_FIST_L]), 0.5f, 0.5f, scale[RP_FIST_L], scale[RP_FIST_L], false);
-    limb(rl, img_dummy((DummySize)sz, PART_ARM_UPPER), shr, s[RP_ELBOW_R], rig->upper_arm_px, scale[RP_ELBOW_R]);
-    limb(rl, img_dummy((DummySize)sz, PART_ARM_LOWER), s[RP_ELBOW_R], s[RP_FIST_R], rig->lower_arm_px, scale[RP_ELBOW_R]);
-    rl_bitmap(rl, img_dummy((DummySize)sz, PART_FIST), s[RP_FIST_R].x, s[RP_FIST_R].y,
-              down_angle(s[RP_ELBOW_R], s[RP_FIST_R]), 0.5f, 0.5f, scale[RP_FIST_R], scale[RP_FIST_R], false);
+    if (ok[RP_BODY_HI]) {
+        tilt = ang / RAD_TO_DEG;
+        shl.x = s[RP_BODY_HI].x + cosf(tilt) * rig->shoulder_l.x * scale[RP_BODY_HI];
+        shl.y = s[RP_BODY_HI].y + sinf(tilt) * rig->shoulder_l.x * scale[RP_BODY_HI];
+        shr.x = s[RP_BODY_HI].x + cosf(tilt) * rig->shoulder_r.x * scale[RP_BODY_HI];
+        shr.y = s[RP_BODY_HI].y + sinf(tilt) * rig->shoulder_r.x * scale[RP_BODY_HI];
+        shl.ppm = shr.ppm = s[RP_BODY_HI].ppm;
+        if (ok[RP_ELBOW_L])
+            limb(rl, img_dummy((DummySize)sz, PART_ARM_UPPER), shl, s[RP_ELBOW_L], rig->upper_arm_px, scale[RP_ELBOW_L]);
+        if (ok[RP_ELBOW_R])
+            limb(rl, img_dummy((DummySize)sz, PART_ARM_UPPER), shr, s[RP_ELBOW_R], rig->upper_arm_px, scale[RP_ELBOW_R]);
+    }
+    if (ok[RP_ELBOW_L] && ok[RP_FIST_L]) {
+        limb(rl, img_dummy((DummySize)sz, PART_ARM_LOWER), s[RP_ELBOW_L], s[RP_FIST_L], rig->lower_arm_px, scale[RP_ELBOW_L]);
+        rl_bitmap(rl, img_dummy((DummySize)sz, PART_FIST), s[RP_FIST_L].x, s[RP_FIST_L].y,
+                  down_angle(s[RP_ELBOW_L], s[RP_FIST_L]), 0.5f, 0.5f, scale[RP_FIST_L], scale[RP_FIST_L], false);
+    }
+    if (ok[RP_ELBOW_R] && ok[RP_FIST_R]) {
+        limb(rl, img_dummy((DummySize)sz, PART_ARM_LOWER), s[RP_ELBOW_R], s[RP_FIST_R], rig->lower_arm_px, scale[RP_ELBOW_R]);
+        rl_bitmap(rl, img_dummy((DummySize)sz, PART_FIST), s[RP_FIST_R].x, s[RP_FIST_R].y,
+                  down_angle(s[RP_ELBOW_R], s[RP_FIST_R]), 0.5f, 0.5f, scale[RP_FIST_R], scale[RP_FIST_R], false);
+    }
 
     /* Head and its knocked-out face, centred on the head point, turned along body_hi -> head. */
-    ang = up_angle(s[RP_BODY_HI], s[RP_HEAD]);
-    rl_bitmap(rl, img_dummy((DummySize)sz, PART_HEAD), s[RP_HEAD].x, s[RP_HEAD].y, ang, 0.5f, 0.5f,
-              scale[RP_HEAD], scale[RP_HEAD], false);
-    rl_bitmap(rl, img_dummy((DummySize)sz, PART_FACE_KO), s[RP_HEAD].x, s[RP_HEAD].y, ang, 0.5f, 0.5f,
-              scale[RP_HEAD], scale[RP_HEAD], false);
+    if (ok[RP_BODY_HI] && ok[RP_HEAD]) {
+        ang = up_angle(s[RP_BODY_HI], s[RP_HEAD]);
+        rl_bitmap(rl, img_dummy((DummySize)sz, PART_HEAD), s[RP_HEAD].x, s[RP_HEAD].y, ang, 0.5f, 0.5f,
+                  scale[RP_HEAD], scale[RP_HEAD], false);
+        rl_bitmap(rl, img_dummy((DummySize)sz, PART_FACE_KO), s[RP_HEAD].x, s[RP_HEAD].y, ang, 0.5f, 0.5f,
+                  scale[RP_HEAD], scale[RP_HEAD], false);
+    }
 }

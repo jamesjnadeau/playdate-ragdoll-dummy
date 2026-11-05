@@ -19,6 +19,8 @@ typedef struct {
     Vec3 p[RP_COUNT], prev[RP_COUNT];    /* metres; velocity is (p - prev) / DT */
     float rest[RP_COUNT + 2];            /* stick rest lengths (m), RAGDOLL_STICKS used */
     float hp;
+    float charged;                       /* wall damage already charged for the impact in the current window */
+    int charge_t;                        /* frames until `charged` resets */
     int still_frames;
     int dummy;                           /* index of the owning Dummy, whose state follows the ragdoll */
     unsigned born;                       /* spawn serial, to recycle the oldest */

@@ -216,7 +216,7 @@ static void test_ragdoll_slams_open_door(void) {
     h.ndoors = 1;
     h.doors[0].side = 1; h.doors[0].z = 3.0f; h.doors[0].state = DOOR_OPEN;
     h.doors[0].remaining = 2; h.doors[0].leaf_angle = 1.0f;
-    e = dummy_spawn(&dp, DS_MEDIUM, 1.3f, 4.0f, 0);   /* still EMERGING from that door */
+    e = dummy_spawn(&dp, DS_MEDIUM, 1.3f, 4.2f, 0);   /* still EMERGING from that door */
     mk_ragdoll(&rp, &dp, DS_MEDIUM, 0.8f, 3.5f, V(12, 0, 0));
     for (int i = 0; i < 8 && h.doors[0].state == DOOR_OPEN; i++) step(&rp, &dp, &h, &out);
     CHECK_EQ_INT(h.doors[0].state, DOOR_CLOSED_FULL);
@@ -266,6 +266,105 @@ static void test_game_spawns_and_reports_bursts(void) {
 static int find_image(const RenderList* rl, int image) {
     for (int i = 0; i < rl->n; i++) if (rl->cmd[i].type == RC_BITMAP && rl->cmd[i].image == image) return i;
     return -1;
+}
+
+static void test_impact_charged_once_per_window(void) {
+    static RagdollPool rp; static DummyPool dp;
+    static Hallway h; RagdollStepOut out;
+    int r;
+    float cost1, before;
+    init_rigs();
+    memset(&rp, 0, sizeof rp); memset(&dp, 0, sizeof dp); memset(&h, 0, sizeof h);
+    r = mk_ragdoll(&rp, &dp, DS_MEDIUM, 0.9f, 3.0f, V(5.5f, 0, 0));
+    for (int i = 0; i < 12; i++) step(&rp, &dp, &h, &out);
+    cost1 = RAGDOLL_HP - rp.r[r].hp;
+    CHECK(rp.r[r].active);
+    CHECK(cost1 > 2.0f && cost1 < 4.0f);          /* one impact (fists 1.2 x 5.5 - 3 = 3.6), charged once */
+    CHECK(out.burst_count == 0);
+    /* Well after the window, a second hit is charged again. */
+    for (int i = 0; i < RAGDOLL_IMPACT_WINDOW + 4; i++) step(&rp, &dp, &h, &out);
+    before = rp.r[r].hp;
+    for (int i = 0; i < RP_COUNT; i++) {
+        rp.r[r].p[i].x = HALL_HALF_W - 0.1f;
+        rp.r[r].prev[i].x = rp.r[r].p[i].x - 5.0f * DT;
+    }
+    for (int i = 0; i < 3; i++) step(&rp, &dp, &h, &out);
+    CHECK(rp.r[r].hp < before - 0.5f);
+}
+
+static void test_ragdoll_stale_cooldown_cleared(void) {
+    static RagdollPool rp; static DummyPool dp;
+    static Hallway h; RagdollStepOut out;
+    int r;
+    init_rigs();
+    memset(&rp, 0, sizeof rp); memset(&dp, 0, sizeof dp); memset(&h, 0, sizeof h);
+    r = mk_ragdoll(&rp, &dp, DS_MEDIUM, 0.0f, 3.0f, V(0, 0, 0));
+    rp.r[r].bowl_cd[9] = 7;                        /* slot 9 holds no live dummy */
+    step(&rp, &dp, &h, &out);
+    CHECK_EQ_INT(rp.r[r].bowl_cd[9], 0);
+}
+
+static void test_ragdoll_soak_stays_in_hallway(void) {
+    static RagdollPool rp; static DummyPool dp;
+    static Hallway h; RagdollStepOut out;
+    unsigned s = 12345u;
+    init_rigs();
+    memset(&rp, 0, sizeof rp); memset(&dp, 0, sizeof dp); memset(&h, 0, sizeof h);
+    for (int k = 0; k < 6; k++) {
+        float v[3];
+        int r;
+        for (int a = 0; a < 3; a++) { s = s * 1664525u + 1013904223u; v[a] = (float)((s >> 8) & 0xFFFF) / 32768.0f - 1.0f; }
+        r = mk_ragdoll(&rp, &dp, (DummySize)(k % 3), -0.8f + 0.3f * (float)k, 3.0f + (float)k, V(v[0], v[1], v[2]));
+        {   /* scale to 12 m/s */
+            float len = sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) + 1e-3f;
+            for (int i = 0; i < RP_COUNT; i++) {
+                Vec3 d = v3_sub(rp.r[r].p[i], rp.r[r].prev[i]);
+                rp.r[r].prev[i] = v3_sub(rp.r[r].p[i], v3_scale(d, 12.0f / len));
+            }
+        }
+        rp.r[r].hp = 1e9f;
+    }
+    for (int i = 0; i < 300; i++) {
+        step(&rp, &dp, &h, &out);
+        for (int k = 0; k < 6; k++) for (int j = 0; j < RP_COUNT; j++) {
+            const Vec3* p = &rp.r[k].p[j];
+            CHECK(isfinite(p->x) && isfinite(p->y) && isfinite(p->z));
+            CHECK(fabsf(p->x) <= HALL_HALF_W + 1e-3f);
+            CHECK(p->y >= -1e-3f && p->y <= HALL_H + 1e-3f);
+        }
+    }
+}
+
+static void test_draw_ragdoll_partial_visibility(void) {
+    static RagdollPool rp; static DummyPool dp;
+    Camera cam = {0.0f, 0.0f, 1};
+    Ragdoll* r;
+    init_rigs();
+    memset(&rp, 0, sizeof rp); memset(&dp, 0, sizeof dp);
+    r = &rp.r[mk_ragdoll(&rp, &dp, DS_MEDIUM, 0.0f, 3.0f, V(0, 0, 0))];
+    r->p[RP_FIST_L].z = 0.0f;                      /* one fist behind the near plane */
+    rl_clear(&g_rl);
+    draw_ragdoll(&g_rl, &cam, r, &g_rigs[DS_MEDIUM]);
+    CHECK(find_image(&g_rl, img_dummy(DS_MEDIUM, PART_FACE_KO)) >= 0);
+    CHECK(find_image(&g_rl, img_dummy(DS_MEDIUM, PART_BODY)) >= 0);
+}
+
+static void test_launch_spin(void) {
+    static RagdollPool rp; static DummyPool dp;
+    int r;
+    float hx, bx, hz, bz;
+    init_rigs();
+    memset(&rp, 0, sizeof rp); memset(&dp, 0, sizeof dp);
+    r = mk_ragdoll(&rp, &dp, DS_MEDIUM, 0.0f, 3.0f, V(0, 0, 10));
+    hx = (rp.r[r].p[RP_HEAD].x - rp.r[r].prev[RP_HEAD].x) / DT;
+    bx = (rp.r[r].p[RP_BASE].x - rp.r[r].prev[RP_BASE].x) / DT;
+    hz = (rp.r[r].p[RP_HEAD].z - rp.r[r].prev[RP_HEAD].z) / DT;
+    bz = (rp.r[r].p[RP_BASE].z - rp.r[r].prev[RP_BASE].z) / DT;
+    /* opposite sideways offsets, proportional to the launch speed; along-launch speeds are untouched */
+    CHECK_NEAR(hx, 10.0f * RAGDOLL_LAUNCH_SPIN, 1e-3f);
+    CHECK_NEAR(bx, -10.0f * RAGDOLL_LAUNCH_SPIN, 1e-3f);
+    CHECK_NEAR(hz, 10.0f * RAGDOLL_HEAD_VEL, 1e-3f);
+    CHECK_NEAR(bz, 10.0f, 1e-3f);
 }
 
 static void test_draw_ragdoll_segments(void) {
@@ -364,8 +463,13 @@ void suite_ragdoll(void) {
     test_bowling_damages_dummy();
     test_bowling_chain_knockout();
     test_ragdoll_slams_open_door();
+    test_impact_charged_once_per_window();
+    test_ragdoll_stale_cooldown_cleared();
+    test_ragdoll_soak_stays_in_hallway();
+    test_launch_spin();
     test_game_spawns_and_reports_bursts();
     test_draw_ragdoll_segments();
+    test_draw_ragdoll_partial_visibility();
     test_draw_world_sorts_ragdolls_with_dummies();
     test_worst_case_frame_budget();
 }
