@@ -7,10 +7,10 @@ This is a playtest build. The art is placeholder. What I need from you is how it
 Option 1, sideload from the web:
 1. Download the CI artifact `RagdollDummies.pdx.zip` (zipped `RagdollDummies.pdx`).
 2. Go to https://play.date/account/sideload and upload the zip.
-3. Sync the Playdate over Wi-Fi (Settings, then Games, then Sync) and the game appears.
+3. On the Playdate, open Settings → Games and refresh; the game downloads over Wi-Fi and appears in your library.
 
 Option 2, USB:
-1. On the Playdate: Settings, System, Reset, Data Disk (or hold Lock + Menu + Right until it appears), then connect USB.
+1. Connect the Playdate over USB, then on the Playdate choose Settings → System → Reboot to Data Disk.
 2. Unzip, then copy the `RagdollDummies.pdx` folder into the `Games` folder on the Playdate volume.
 3. Eject the disk. The game shows up in the launcher.
 
