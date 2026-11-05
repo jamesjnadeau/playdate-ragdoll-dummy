@@ -112,6 +112,11 @@ static void test_offer_pauses_world(void) {
     GameInput in;
     float z[MAX_DUMMIES];
     int i, d, frame;
+    RagdollPool rp;
+    ParticlePool pp;
+    Impact imp[MAX_IMPACTS];
+    Swing sw;
+    int hurt;
     memset(&in, 0, sizeof(in));
     start(3);
     d = dummy_spawn(&g_.dummies, DS_MEDIUM, 0.5f, 5.0f, -1);
@@ -120,12 +125,23 @@ static void test_offer_pauses_world(void) {
     CHECK_EQ_INT(g_.mode, MODE_OFFER);
     for (i = 0; i < MAX_DUMMIES; i++) z[i] = g_.dummies.d[i].z;
     frame = g_.frame;
+    g_.ragdolls.r[0].active = true;   /* something to move if the world were not paused */
+    g_.ragdolls.r[0].p[0].y = 2.0f; g_.ragdolls.r[0].prev[0].y = 2.0f;
+    g_.particles.p[0].active = true; g_.particles.p[0].life = 50; g_.particles.p[0].p.y = 2.0f;
+    g_.impacts[0].t = 3; g_.hurt_t = 4;
+    memcpy(&rp, &g_.ragdolls, sizeof(rp)); memcpy(&pp, &g_.particles, sizeof(pp));
+    memcpy(imp, g_.impacts, sizeof(imp)); memcpy(&sw, &g_.swing, sizeof(sw)); hurt = g_.hurt_t;
     in.held = BTN_A;
     in.crank_delta = 30.0f;
     for (i = 0; i < 30; i++) game_update(&g_, &in);
     for (i = 0; i < MAX_DUMMIES; i++) CHECK_NEAR(g_.dummies.d[i].z, z[i], 1e-6f);
     CHECK_EQ_INT(g_.frame, frame);
     CHECK_EQ_INT(g_.mode, MODE_OFFER);
+    CHECK(memcmp(&rp, &g_.ragdolls, sizeof(rp)) == 0);
+    CHECK(memcmp(&pp, &g_.particles, sizeof(pp)) == 0);
+    CHECK(memcmp(imp, g_.impacts, sizeof(imp)) == 0);
+    CHECK(memcmp(&sw, &g_.swing, sizeof(sw)) == 0);
+    CHECK_EQ_INT(g_.hurt_t, hurt);
 }
 
 static void test_pickup_is_not_solid(void) {
@@ -169,10 +185,50 @@ static void test_game_render_pickup_and_offer(void) {
     game_render(&g_);
     for (i = 0; i < g_.rl.n; i++) {
         const RenderCmd* c = &g_.rl.cmd[i];
-        if (c->type == RC_RECT && c->pattern == PAT_D50 && c->sx >= SCREEN_W && c->sy >= SCREEN_H) rects50++;
+        if (c->type == RC_RECT && c->pattern == PAT_DIM && c->sx >= SCREEN_W && c->sy >= SCREEN_H) rects50++;
     }
     CHECK_EQ_INT(rects50, 1);
     CHECK(count_type(&g_.rl, RC_TEXT) >= 4);
+}
+
+/* Worst case: 16 dummy slots (10 live, 6 ragdolls), full particle pool, 8 impacts, offer panel. */
+static void test_offer_panel_survives_busy_frame(void) {
+    GameInput in;
+    int i, texts = 0, bars = 0, icons = 0, dim = 0;
+    memset(&in, 0, sizeof(in));
+    start(3);
+    for (i = 0; i < MAX_DUMMIES; i++) {
+        int d = dummy_spawn(&g_.dummies, (DummySize)(i % DS_COUNT), -1.0f + 0.2f * (float)(i % 10), 3.0f + 0.5f * (float)i, -1);
+        g_.dummies.d[d].state = i < MAX_LIVE_DUMMIES ? DST_WALK : DST_RAGDOLL;
+        g_.dummies.d[d].launch.x = 0.5f;
+    }
+    game_update(&g_, &in);   /* spawns the ragdolls */
+    for (i = 0; i < PARTICLE_MAX; i++) {
+        Particle* p = &g_.particles.p[i];
+        p->active = true; p->kind = (ParticleKind)(i % 3); p->variant = (uint8_t)(i % 4);
+        p->p.x = -1.2f + 0.01f * (float)i; p->p.y = 0.5f + 0.005f * (float)i; p->p.z = g_.player.z + 2.0f + 0.03f * (float)i;
+        p->life = 100;
+    }
+    for (i = 0; i < MAX_IMPACTS; i++) { g_.impacts[i].t = 3; g_.impacts[i].x = 50.0f + 40.0f * (float)i; g_.impacts[i].y = 100.0f; g_.impacts[i].r = 20.0f; }
+    g_.weapon = W_BAT;
+    g_.offer = W_PAN;
+    g_.pickup_z = g_.player.z;
+    g_.mode = MODE_OFFER;
+    game_render(&g_);
+    CHECK_EQ_INT(g_.rl.dropped, 0);
+    for (i = 0; i < g_.rl.n; i++) {
+        const RenderCmd* c = &g_.rl.cmd[i];
+        if (c->type == RC_RECT && c->pattern == PAT_DIM) dim++;
+        if (!dim) continue;   /* only what the panel drew, after the dim */
+        texts += c->type == RC_TEXT;
+        icons += c->type == RC_BITMAP && (c->image == IMG_WEAPON_ICON0 + W_BAT || c->image == IMG_WEAPON_ICON0 + W_PAN);
+        bars += c->type == RC_RECT && c->sx < 20.0f;
+    }
+    CHECK_EQ_INT(texts, 9);
+    CHECK_EQ_INT(icons, 2);
+    CHECK_EQ_INT(bars, 12 * 2);
+    CHECK_EQ_INT(dim, 1);
+    CHECK(g_.rl.n > 300);   /* the scene really was busy */
 }
 
 static void test_bench_offer_scene(void) {
@@ -217,6 +273,7 @@ void suite_game_flow(void) {
     test_pickup_is_not_solid();
     test_pickup_drawn();
     test_game_render_pickup_and_offer();
+    test_offer_panel_survives_busy_frame();
     test_bench_offer_scene();
     test_hud_offer_panel();
 }

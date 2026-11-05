@@ -1,7 +1,6 @@
 #include <string.h>
 #include "render_list.h"
 
-#define RL_MAX_CMDS 1024
 #define RL_TEXT_BYTES 1024
 #define RL_MAX_POLY_PTS 4
 #define RL_COORD_LIMIT 30000.0f
@@ -16,7 +15,7 @@ static int16_t to_i16(float v) {
 /* Returns the next free command slot, or NULL (and counts a drop) when full. */
 static RenderCmd* rl_alloc(RenderList* rl, uint8_t type, Pattern p) {
     RenderCmd* c;
-    if (rl->n >= RL_MAX_CMDS) {
+    if (rl->n >= (rl->hud_open ? RL_MAX_CMDS : RL_MAX_CMDS - RL_HUD_RESERVE)) {
         rl->dropped++;
         return NULL;
     }
@@ -33,7 +32,10 @@ void rl_clear(RenderList* rl) {
     rl->text_n = 0;
     rl->dropped = 0;
     rl->invert = false;
+    rl->hud_open = false;
 }
+
+void rl_hud_begin(RenderList* rl) { rl->hud_open = true; }
 
 void rl_offset(RenderList* rl, int start, int dx, int dy) {
     int i, k;

@@ -1,11 +1,19 @@
 #ifndef RENDER_LIST_H
 #define RENDER_LIST_H
 
+#define RL_MAX_CMDS 1024
+/* The last RL_HUD_RESERVE commands are only available after rl_hud_begin, so the world, particles, impacts
+ * and weapon can never crowd out a panel or HUD drawn afterwards. Anything drawn after the world and
+ * before rl_hud_begin counts against the capped list. */
+#define RL_HUD_RESERVE 128
+
 #include <stdint.h>
 #include <stdbool.h>
 
 typedef enum { RC_POLY, RC_LINE, RC_BITMAP, RC_TEXT, RC_RECT } RcType;
-typedef enum { PAT_WHITE, PAT_BLACK, PAT_D25, PAT_D50, PAT_D75 } Pattern;
+typedef enum { PAT_WHITE, PAT_BLACK, PAT_D25, PAT_D50, PAT_D75, PAT_DIM } Pattern;
+/* PAT_DIM: a 50% black checker whose other pixels are transparent, so what is under it shows through.
+ * Every other pattern is opaque. Used for the dim behind panels. */
 
 /*
  * Field use per type:
@@ -26,15 +34,18 @@ typedef struct {
 } RenderCmd;
 
 typedef struct {
-    RenderCmd cmd[1024];
+    RenderCmd cmd[RL_MAX_CMDS];
     int n;
     char text[1024];
     int text_n;
     bool invert;    /* the platform inverts the display for this frame */
+    bool hud_open;  /* rl_hud_begin was called: the HUD reserve is available */
     int dropped;    /* commands refused because the list or text buffer was full */
 } RenderList;
 
 void rl_clear(RenderList* rl);
+/* Opens the reserved headroom; call once, before drawing overlays and HUD. rl_clear closes it again. */
+void rl_hud_begin(RenderList* rl);
 void rl_poly(RenderList* rl, const float* xy, int npts, Pattern p);
 void rl_line(RenderList* rl, float x0, float y0, float x1, float y1, int width, Pattern p);
 void rl_rect(RenderList* rl, float x, float y, float w, float h, Pattern fill, bool outline);

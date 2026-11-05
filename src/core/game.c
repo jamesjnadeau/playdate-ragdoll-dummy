@@ -150,6 +150,8 @@ static void spawn_teeth(Game* g) {
 /* Every WEAPON_OFFER_EVERY_DOORS emptied doors, drops a pickup ahead of the player offering another weapon. */
 static void maybe_place_pickup(Game* g) {
     int now = g->hall.doors_emptied;
+    /* A multiple of WEAPON_OFFER_EVERY_DOORS crossed while a pickup is still pending is intentionally
+       skipped (no second pickup, no re-roll): the pending one stays. */
     if (now / WEAPON_OFFER_EVERY_DOORS > g->offer_doors_seen / WEAPON_OFFER_EVERY_DOORS && g->pickup_z < 0.0f) {
         g->pickup_z = g->player.z + PICKUP_AHEAD;
         g->offer = (WeaponId)(((int)g->weapon + 1 + rng_range(&g->rng, 0, (int)W_COUNT - 2)) % (int)W_COUNT);
@@ -257,7 +259,8 @@ void game_render(Game* g) {
         if (g->impacts[i].t > 0) draw_impact(&g->rl, g->impacts[i].x, g->impacts[i].y, g->impacts[i].r);
     draw_weapon(&g->rl, &g->swing, &g->wrigs[g->weapon], IMG_WEAPON_HELD0 + (int)g->weapon);
     if (g->mode == MODE_OFFER) {
-        rl_rect(&g->rl, 0.0f, 0.0f, SCREEN_W, SCREEN_H, PAT_D50, false);
+        rl_hud_begin(&g->rl);   /* the panel always fits, however busy the world was */
+        rl_rect(&g->rl, 0.0f, 0.0f, SCREEN_W, SCREEN_H, PAT_DIM, false);
         hud_draw_offer(&g->rl, g->weapon, g->offer);
     }
 }

@@ -9,6 +9,7 @@ void suite_render_list(void) {
 
     /* A full list keeps 1024 commands and counts the 76 it dropped. */
     rl_clear(&rl);
+    rl_hud_begin(&rl);
     for (i = 0; i < 1100; i++) rl_line(&rl, 0.0f, 0.0f, 1.0f, 1.0f, 2, PAT_BLACK);
     CHECK_EQ_INT(rl.n, 1024);
     CHECK_EQ_INT(rl.dropped, 76);
@@ -54,4 +55,18 @@ void suite_render_list(void) {
     CHECK_EQ_INT(rl.cmd[2].type, RC_BITMAP);
     CHECK_EQ_INT(rl.cmd[2].image, 3);
     CHECK_EQ_INT(rl.cmd[2].flip, 1);
+
+    /* The last RL_HUD_RESERVE commands are kept for the HUD until rl_hud_begin. */
+    rl_clear(&rl);
+    for (int i = 0; i < 1100; i++) rl_rect(&rl, 0.0f, 0.0f, 1.0f, 1.0f, PAT_BLACK, false);
+    CHECK_EQ_INT(rl.n, 1024 - RL_HUD_RESERVE);
+    CHECK_EQ_INT(rl.dropped, 1100 - (1024 - RL_HUD_RESERVE));
+    rl.dropped = 0;
+    rl_hud_begin(&rl);
+    for (int i = 0; i < RL_HUD_RESERVE + 5; i++) rl_rect(&rl, 0.0f, 0.0f, 1.0f, 1.0f, PAT_BLACK, false);
+    CHECK_EQ_INT(rl.n, 1024);
+    CHECK_EQ_INT(rl.dropped, 5);
+    rl_clear(&rl);   /* clearing closes the reserve again */
+    for (int i = 0; i < 1100; i++) rl_rect(&rl, 0.0f, 0.0f, 1.0f, 1.0f, PAT_BLACK, false);
+    CHECK_EQ_INT(rl.n, 1024 - RL_HUD_RESERVE);
 }
