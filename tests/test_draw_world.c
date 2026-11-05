@@ -130,6 +130,31 @@ static void test_doors_draw(void) {
     CHECK_EQ_INT(g_rl.dropped, 0);
 }
 
+static void test_door_leaf_swings_into_hallway(void) {
+    float xr, zr, xl, zl;
+    for (int side = -1; side <= 1; side += 2) {
+        for (float a = 0.0f; a <= 1.0f; a += 0.25f) {
+            Door d = { side, 5.0f, DOOR_OPEN, 1, 0, a };
+            float x, z;
+            door_leaf_free_edge(&d, &x, &z);
+            CHECK(fabsf(x) <= HALL_HALF_W + 1e-5f);
+            CHECK(z <= d.z + DOOR_LEN + 1e-5f);
+            if (a >= 0.5f) {
+                CHECK(fabsf(x) < HALL_HALF_W);
+                CHECK(z < d.z + DOOR_LEN);
+                CHECK(x * (float)side > 0.0f);   /* still on its own half, never through the wall */
+            }
+        }
+    }
+    {
+        Door r = { 1, 5.0f, DOOR_OPEN, 1, 0, 1.0f }, l = { -1, 5.0f, DOOR_OPEN, 1, 0, 1.0f };
+        door_leaf_free_edge(&r, &xr, &zr);
+        door_leaf_free_edge(&l, &xl, &zl);
+        CHECK_NEAR(xl, -xr, 1e-6f);
+        CHECK_NEAR(zl, zr, 1e-6f);
+    }
+}
+
 static void test_hallway_clips_near(void) {
     /* Standing inside a panel/cross-line period must not emit non-finite or dropped geometry. */
     Camera cam = {1.4f, 0.0f, 1};
@@ -146,4 +171,5 @@ void suite_draw_world(void) {
     test_draw_dummy_scales_with_distance();
     test_dummies_sorted_far_to_near();
     test_doors_draw();
+    test_door_leaf_swings_into_hallway();
 }

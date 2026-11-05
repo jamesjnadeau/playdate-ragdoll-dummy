@@ -176,6 +176,13 @@ static void wall_box(RenderList* rl, const Camera* cam, float x, float z0, float
     wall_line(rl, cam, x, z0, y1, z0, y0, 1);
 }
 
+void door_leaf_free_edge(const Door* door, float* x, float* z) {
+    float ang = clampf(door->leaf_angle, 0.0f, 1.0f) * LEAF_MAX_DEG;
+    /* Hinged at the far edge (z + DOOR_LEN); swings into the hallway (-side) toward smaller z. */
+    *x = (float)door->side * (HALL_HALF_W - DOOR_LEN * rsin_deg(ang));
+    *z = door->z + DOOR_LEN - DOOR_LEN * rcos_deg(ang);
+}
+
 void draw_door(RenderList* rl, const Camera* cam, const Door* door) {
     float x = (float)door->side * HALL_HALF_W;
     float z0 = door->z, z1 = door->z + DOOR_LEN;
@@ -183,10 +190,9 @@ void draw_door(RenderList* rl, const Camera* cam, const Door* door) {
     if (z1 < cam->player_z + NEAR_Z) return;
 
     if (door->state == DOOR_OPEN) {
-        float ang = clampf(door->leaf_angle, 0.0f, 1.0f) * LEAF_MAX_DEG;
-        float xf = x - (float)door->side * DOOR_LEN * rsin_deg(ang);
-        float zf = z1 - DOOR_LEN * rcos_deg(ang);
+        float xf, zf;
         float xy[8];
+        door_leaf_free_edge(door, &xf, &zf);
         wall_quad(rl, cam, x, z0, z1, 0.0f, DOOR_H, PAT_BLACK);   /* doorway */
         /* Hinged at the far edge so the swung leaf folds toward the player and leaves the doorway visible. */
         dproj(cam, x, 0.0f, z1, &xy[0], &xy[1]);
