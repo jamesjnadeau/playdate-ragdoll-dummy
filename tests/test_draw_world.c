@@ -19,7 +19,7 @@ static float nearest_cross_y(const RenderList* rl) {
 }
 
 static void test_hallway_emits_geometry(void) {
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     int found = 0;
     rl_clear(&g_rl);
     draw_hallway(&g_rl, &cam);
@@ -38,7 +38,7 @@ static void test_hallway_emits_geometry(void) {
 }
 
 static void test_hallway_scrolls(void) {
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     float y0, y1;
     rl_clear(&g_rl);
     draw_hallway(&g_rl, &cam);
@@ -66,7 +66,7 @@ static float body_sy(const RenderList* rl, DummySize s) {
 }
 
 static void test_draw_dummy_scales_with_distance(void) {
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     Dummy d;
     DummyPool dp;
     float near_sy, far_sy;
@@ -91,7 +91,7 @@ static void test_draw_dummy_scales_with_distance(void) {
 }
 
 static void test_dummies_sorted_far_to_near(void) {
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     Hallway h;
     DummyPool dp;
     int first_body = -1;
@@ -113,7 +113,7 @@ static void test_dummies_sorted_far_to_near(void) {
 }
 
 static void test_doors_draw(void) {
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     Door d = { 1, 5.0f, DOOR_CLOSED_FULL, 2, 0, 0.0f };
     int n_closed, n_open;
     rl_clear(&g_rl);
@@ -168,7 +168,7 @@ static void test_door_leaf_swings_into_hallway(void) {
 }
 
 static void test_worst_case_no_drops(void) {
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     Hallway h;
     DummyPool dp;
     init_rigs();
@@ -193,7 +193,7 @@ static void test_worst_case_no_drops(void) {
 
 static void test_hallway_clips_near(void) {
     /* Standing inside a panel/cross-line period must not emit non-finite or dropped geometry. */
-    Camera cam = {1.4f, 0.0f, 1};
+    Camera cam = {1.4f, 0.0f};
     rl_clear(&g_rl);
     draw_hallway(&g_rl, &cam);
     CHECK(g_rl.n > 20);
@@ -404,11 +404,11 @@ static int count_polys_white(const RenderList* rl) {
     return n;
 }
 
-/* The weapon is live, clear of the dummies at -70 deg and turning clockwise fast, so this frame's sweep
+/* The weapon is live, clear of the dummies at -60 deg and turning clockwise fast, so this frame's sweep
    crosses the centre. */
 static void mid_swing(Game* g) {
     g->wp.live = g->wp.attached = true;
-    g->wp.angle = g->wp.prev_angle = -70.0f;
+    g->wp.angle = g->wp.prev_angle = -60.0f;
     g->wp.target = 0.0f;
     g->wp.vel = 30.0f;
 }

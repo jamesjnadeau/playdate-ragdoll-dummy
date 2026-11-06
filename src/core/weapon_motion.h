@@ -19,11 +19,15 @@ typedef struct {
     uint16_t struck;           /* bit i: dummy i was hit this pass and counts as inside (owned by contact.c) */
     float struck_dir;          /* sign of the move that struck them (owned by contact.c) */
     float struck_travel;       /* degrees turned since the last strike (owned by contact.c) */
+    int jab_t;                 /* frames into an A/B jab, 0 when not jabbing */
+    uint16_t jab_hit;          /* bit i: dummy i was already hit by this jab (owned by contact.c) */
 } Weapon;                      /* all-zero is a valid docked, centred weapon */
 
 float weapon_wrap_deg(float a);                 /* to (-180, 180] */
 float weapon_pivot_x(const Weapon* wp);         /* WEAPON_PIVOT_X + shift */
 void weapon_update(Weapon* wp, const GameInput* in, const WeaponDef* w);
+float weapon_jab_ext(const Weapon* wp);          /* px the jab pushes the weapon out along itself */
+bool weapon_jab_extending(const Weapon* wp);     /* the jab is still going out: it can hit */
 void weapon_detach(Weapon* wp, float angle, float vel); /* used by contact.c on a bounce */
 
 #endif

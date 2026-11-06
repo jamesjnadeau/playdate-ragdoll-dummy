@@ -74,8 +74,8 @@ int player_update(Player* p, const GameInput* in, Hallway* h, DummyPool* dp, int
         p->knock_frames--;
     } else {
         float step = 0.0f;
-        if (in->held & BTN_A) step += PLAYER_SPEED * DT;
-        if (in->held & BTN_B) step -= PLAYER_SPEED * DT;
+        if (in->held & BTN_UP) step += PLAYER_SPEED * DT;
+        if (in->held & BTN_DOWN) step -= PLAYER_SPEED * DT;
         p->z += step;
         if (step > 0.0f) {
             float lim = block_limit(p, dp);
@@ -83,7 +83,7 @@ int player_update(Player* p, const GameInput* in, Hallway* h, DummyPool* dp, int
             if (p->z > lim) p->z = lim;
         }
     }
-    /* Holding B never goes below the floor, but the floor never pushes the player forward. */
+    /* Holding down never goes below the floor, but the floor never pushes the player forward. */
     if (p->z < prev && !(p->knock_frames > 0 || knocked)) {
         float lo = floor_z < prev ? floor_z : prev;
         if (p->z < lo) p->z = lo;

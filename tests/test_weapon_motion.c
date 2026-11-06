@@ -80,8 +80,8 @@ static void test_moves_same_frame(void) {
 static void test_catch_up_targets(void) {
     CHECK(catch_up(W_CHICKEN, 0, 0) >= 0 && catch_up(W_CHICKEN, 0, 0) <= 2);
     CHECK(catch_up(W_BAT, 0, 0) >= 0 && catch_up(W_BAT, 0, 0) <= 4);
-    CHECK(catch_up(W_PAN, 0, 0) >= 0 && catch_up(W_PAN, 0, 0) <= 6);
-    CHECK(catch_up(W_SLEDGE, 0, 0) >= 0 && catch_up(W_SLEDGE, 0, 0) <= 10);
+    CHECK(catch_up(W_PAN, 0, 0) >= 0 && catch_up(W_PAN, 0, 0) <= 10);
+    CHECK(catch_up(W_SLEDGE, 0, 0) >= 0 && catch_up(W_SLEDGE, 0, 0) <= 24);
 }
 
 static void test_heavier_lags_more(void) {
@@ -91,12 +91,13 @@ static void test_heavier_lags_more(void) {
     CHECK(lag[W_CHICKEN] < lag[W_BAT]);
     CHECK(lag[W_BAT] < lag[W_PAN]);
     CHECK(lag[W_PAN] < lag[W_SLEDGE]);
+    CHECK(lag[W_SLEDGE] > 55.0f);      /* the sledge trails the crank by a wide margin */
 }
 
 static void test_sledge_overshoots_slightly(void) {
     float over = 0.0f;
     catch_up(W_SLEDGE, &over, 0);
-    CHECK(over > 0.0f && over < 8.0f);
+    CHECK(over > 0.0f && over < 16.0f);
 }
 
 static void test_vel_clamped(void) {
@@ -245,6 +246,46 @@ static void test_weapons_table(void) {
     CHECK(weapon_def((WeaponId)99) == NULL);
 }
 
+static GameInput press(uint8_t b) {
+    GameInput in = inp(0.0f, 0.0f, false, 0);
+    in.pressed = b;
+    return in;
+}
+
+/* A or B thrusts the weapon out and back, ignores presses mid-jab, and a docked weapon never jabs. */
+static void test_jab_out_and_back(void) {
+    const WeaponDef* w = weapon_def(W_BAT);
+    uint8_t buttons[2] = {BTN_A, BTN_B};
+    for (int b = 0; b < 2; b++) {
+        Weapon wp;
+        start(&wp, w, 0.0f);
+        CHECK_NEAR(weapon_jab_ext(&wp), 0.0f, 0.0f);
+        GameInput in = press(buttons[b]);
+        weapon_update(&wp, &in, w);
+        CHECK(weapon_jab_extending(&wp));
+        float prev = weapon_jab_ext(&wp), peak = prev;
+        CHECK(prev > 0.0f);
+        int f;
+        for (f = 0; f < WEAPON_JAB_OUT_FRAMES - 1; f++) {
+            in = press(buttons[b]);                    /* mashing does not restart it */
+            weapon_update(&wp, &in, w);
+            CHECK(weapon_jab_ext(&wp) > prev);
+            prev = peak = weapon_jab_ext(&wp);
+        }
+        CHECK_NEAR(peak, WEAPON_JAB_PX, 0.001f);
+        CHECK(!weapon_jab_extending(&wp) || wp.jab_t == WEAPON_JAB_OUT_FRAMES);
+        for (f = 0; f < 20 && wp.jab_t != 0; f++) crank(&wp, w, 0.0f, 1);
+        CHECK_EQ_INT(wp.jab_t, 0);
+        CHECK_NEAR(weapon_jab_ext(&wp), 0.0f, 0.0f);
+        CHECK_NEAR(wp.angle, 0.0f, 0.001f);           /* jabbing never turns the weapon */
+    }
+    Weapon wp = {0};
+    GameInput d = inp(0.0f, 0.0f, true, 0);
+    d.pressed = BTN_A;
+    weapon_update(&wp, &d, w);
+    CHECK_EQ_INT(wp.jab_t, 0);
+}
+
 void suite_weapon_motion(void) {
     test_weapons_table();
     test_zero_is_docked_upright();
@@ -261,4 +302,5 @@ void suite_weapon_motion(void) {
     test_pivot_shift_eases();
     test_dock_mid_bounce_resets();
     test_long_session_stays_precise();
+    test_jab_out_and_back();
 }

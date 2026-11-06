@@ -10,9 +10,7 @@
 #define FOCAL 150.0f
 #define SCREEN_CX 200.0f
 #define HORIZON_Y 72.0f
-#define AIM_PITCH_LOW_PX (-40.0f)   /* horizon moves up when looking down */
-#define AIM_PITCH_HIGH_PX 40.0f
-#define AIM_EASE_PX_PER_FRAME 8.0f
+#define CAM_PITCH_PX (-20.0f)       /* fixed view: halfway between looking down (-40) and level (0) */
 #define NEAR_Z 0.25f
 #define NEAR_Z_EPS 0.0005f           /* float rounding slack on the near-plane test */
 #define FAR_Z 16.0f
@@ -46,7 +44,8 @@
 #define DUMMY_DMG_SMALL 1
 #define DUMMY_DMG_MEDIUM 1
 #define DUMMY_DMG_LARGE 2
-#define DUMMY_PUNCH_REACH 0.75f
+#define DUMMY_PUNCH_REACH_FRAC 0.5f  /* dummies punch once halfway into the weapon's reach */
+#define DUMMY_PUNCH_GAP 0.1f          /* ...or from this close to the player, if that is further (big dummies) */
 #define DUMMY_STAGGER_FRAMES 10
 #define DUMMY_HIT_PUSHBACK 0.35f
 #define DUMMY_EMERGE_FRAMES 15
@@ -175,6 +174,11 @@
 /* Weapon contact (swept weapon vs dummy hit boxes). */
 #define WEAPON_SWEEP_STEP_DEG 4.0f   /* sample spacing along a frame's sweep */
 #define WEAPON_BOUNCE_RESTITUTION 0.4f
+#define WEAPON_JAB_PX 45.0f          /* A/B jab: how far the weapon thrusts out along itself */
+#define WEAPON_JAB_OUT_FRAMES 3      /* frames to full extension; hits land only while extending */
+#define WEAPON_JAB_FRAMES 9          /* out and back */
+#define WEAPON_JAB_REACH_M 0.4f      /* extra hit depth at full extension */
+#define WEAPON_JAB_MOMENTUM 40.0f    /* momentum per unit of weapon mass */
 #define DUMMY_RESIST_SMALL 45.0f     /* momentum a hit needs to carry through */
 #define DUMMY_RESIST_MEDIUM 70.0f
 #define DUMMY_RESIST_LARGE 130.0f

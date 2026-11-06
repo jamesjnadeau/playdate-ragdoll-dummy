@@ -27,6 +27,7 @@ int dummy_live_count(const DummyPool* p);
 int dummy_windup_frames(DummySize s);
 int dummy_damage(DummySize s);
 /* AI, separation, windup and punch. Sets *out_damage_to_player to the damage dealt this frame. */
-void dummy_update_all(DummyPool* p, float player_z, float player_x, int* out_damage_to_player);
+/* punch_dz: how close (in z) a dummy must get before it winds up a punch; the game passes half the weapon's reach. */
+void dummy_update_all(DummyPool* p, float player_z, float player_x, float punch_dz, int* out_damage_to_player);
 
 #endif

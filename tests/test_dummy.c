@@ -15,11 +15,13 @@ static void test_dummy_pool_full(void) {
     CHECK(memcmp(&snap, &p, sizeof(p)) == 0);
 }
 
+#define PUNCH_DZ 0.8f   /* half the bat's reach */
+
 static void make_walk(Dummy* d) { d->state = DST_WALK; d->timer = 0; }
 
 static void run(DummyPool* p, int n, float pz, int* total) {
     int i, dmg;
-    for (i = 0; i < n; i++) { dummy_update_all(p, pz, 0.0f, &dmg); if (total) *total += dmg; }
+    for (i = 0; i < n; i++) { dummy_update_all(p, pz, 0.0f, PUNCH_DZ, &dmg); if (total) *total += dmg; }
 }
 
 static void test_dummy_walks_toward_player(void) {
@@ -39,7 +41,7 @@ static void test_dummy_stops_in_front(void) {
     memset(&p, 0, sizeof(p));
     i = dummy_spawn(&p, DS_MEDIUM, 0.5f, 3.0f, -1);
     make_walk(&p.d[i]);
-    for (k = 0; k < 200; k++) { dummy_update_all(&p, 0.0f, 0.0f, &dmg); CHECK(p.d[i].z >= min_z); }
+    for (k = 0; k < 200; k++) { dummy_update_all(&p, 0.0f, 0.0f, PUNCH_DZ, &dmg); CHECK(p.d[i].z >= min_z); }
     CHECK_NEAR(p.d[i].z, PLAYER_RADIUS + DUMMY_RADIUS_MEDIUM, 1e-3f);
 }
 
@@ -101,7 +103,7 @@ static void test_dummy_punch_damage(void) {
     i = dummy_spawn(&p, DS_LARGE, 0.0f, 0.9f, -1);
     make_walk(&p.d[i]);
     for (f = 1; f <= 50; f++) {
-        dummy_update_all(&p, 0.0f, 0.0f, &dmg);
+        dummy_update_all(&p, 0.0f, 0.0f, PUNCH_DZ, &dmg);
         if (dmg > 0) { hits++; if (!first) first = f; CHECK_EQ_INT(dmg, 2); }
     }
     CHECK_EQ_INT(first, DUMMY_WINDUP_LARGE + 1);
@@ -118,7 +120,7 @@ static void test_dummy_cooldown(void) {
     make_walk(&p.d[i]);
     for (f = 1; f <= 200; f++) {
         DummyState before = p.d[i].state;
-        dummy_update_all(&p, 0.0f, 0.0f, &dmg);
+        dummy_update_all(&p, 0.0f, 0.0f, PUNCH_DZ, &dmg);
         if (before == DST_WALK && p.d[i].state == DST_WINDUP) {
             if (windup_start) CHECK_EQ_INT(f - windup_start, DUMMY_WINDUP_SMALL + DUMMY_PUNCH_FRAMES + DUMMY_PUNCH_COOLDOWN + 1);
             windup_start = f;
@@ -132,7 +134,7 @@ static void test_spawn_pipeline(void) {
     int f, n = 0, i;
     memset(&in, 0, sizeof(in));
     game_init(&g, 42);
-    in.held = BTN_A;
+    in.held = BTN_UP;
     for (f = 0; f < 150; f++) game_update(&g, &in);
     for (i = 0; i < MAX_DUMMIES; i++) n += g.dummies.d[i].alive;
     CHECK(n > 0);
@@ -206,6 +208,27 @@ static void test_wave_bench_respects_cap(void) {
     CHECK_EQ_INT(dummy_live_count(&g.dummies), MAX_LIVE_DUMMIES);
 }
 
+/* Dummies wind up only once they are halfway into the weapon's reach; big ones can still reach the player. */
+static void test_punch_range(void) {
+    DummyPool p;
+    int i, dmg;
+    memset(&p, 0, sizeof(p));
+    i = dummy_spawn(&p, DS_SMALL, 0.0f, 1.2f, -1);
+    make_walk(&p.d[i]);
+    dummy_update_all(&p, 0.0f, 0.0f, 0.8f, &dmg);
+    CHECK_EQ_INT(p.d[i].state, DST_WALK);          /* the old 1.4 range would already punch here */
+    memset(&p, 0, sizeof(p));
+    i = dummy_spawn(&p, DS_SMALL, 0.0f, 1.2f, -1);
+    make_walk(&p.d[i]);
+    dummy_update_all(&p, 0.0f, 0.0f, 1.3f, &dmg);
+    CHECK_EQ_INT(p.d[i].state, DST_WINDUP);
+    memset(&p, 0, sizeof(p));
+    i = dummy_spawn(&p, DS_LARGE, 0.0f, PLAYER_RADIUS + DUMMY_RADIUS_LARGE, -1);
+    make_walk(&p.d[i]);
+    dummy_update_all(&p, 0.0f, 0.0f, 0.5f, &dmg);
+    CHECK_EQ_INT(p.d[i].state, DST_WINDUP);
+}
+
 void suite_dummy(void) {
     test_dummy_pool_full();
     test_dummy_walks_toward_player();
@@ -221,4 +244,5 @@ void suite_dummy(void) {
     test_live_cap_blocks_door();
     test_ragdolls_do_not_count_toward_cap();
     test_wave_bench_respects_cap();
+    test_punch_range();
 }

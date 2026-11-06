@@ -58,7 +58,7 @@ static void clamp_dummy(Dummy* d, float player_z) {
     if (d->z < min_z) d->z = min_z;
 }
 
-void dummy_update_all(DummyPool* p, float player_z, float player_x, int* out_damage_to_player) {
+void dummy_update_all(DummyPool* p, float player_z, float player_x, float punch_dz, int* out_damage_to_player) {
     int i, j, it, damage = 0;
 
     for (i = 0; i < MAX_DUMMIES; i++) {
@@ -84,7 +84,7 @@ void dummy_update_all(DummyPool* p, float player_z, float player_x, int* out_dam
             clamp_dummy(d, player_z);
             if (d->timer > 0) {
                 d->timer--;
-            } else if (d->z - player_z <= PLAYER_RADIUS + r + DUMMY_PUNCH_REACH) {
+            } else if (d->z - player_z <= fmaxf(punch_dz, PLAYER_RADIUS + r + DUMMY_PUNCH_GAP)) {
                 d->state = DST_WINDUP;
                 d->timer = dummy_windup_frames(d->size);
             }

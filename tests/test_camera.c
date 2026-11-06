@@ -3,7 +3,7 @@
 #include "tuning.h"
 
 void suite_camera(void) {
-    Camera c = {0.0f, 0.0f, 1};
+    Camera c = {0.0f, 0.0f};
     Vec3 w;
     float sx = 0.0f, sy = 0.0f, ppm = 0.0f;
 
@@ -32,18 +32,10 @@ void suite_camera(void) {
         CHECK(camera_project(&c, w, &sx, &sy, &ppm));
     }
 
-    /* Aim eases toward its target by AIM_EASE_PX_PER_FRAME per update. */
-    camera_set_aim(&c, 0);
+    /* The view is fixed halfway between looking down (-40) and level (0). */
+    c.pitch_px = 33.0f;
     camera_update(&c);
+    CHECK_NEAR(c.pitch_px, -20.0f, 1e-4f);
     camera_update(&c);
-    camera_update(&c);
-    CHECK_NEAR(c.pitch_px, -24.0f, 1e-4f);
-    for (int i = 0; i < 7; i++) camera_update(&c);
-    CHECK_NEAR(c.pitch_px, -40.0f, 1e-4f);
-
-    /* Out-of-range aim is clamped to 0..2. */
-    camera_set_aim(&c, 7);
-    CHECK_EQ_INT(c.aim, 2);
-    camera_set_aim(&c, -3);
-    CHECK_EQ_INT(c.aim, 0);
+    CHECK_NEAR(c.pitch_px, -20.0f, 1e-4f);
 }

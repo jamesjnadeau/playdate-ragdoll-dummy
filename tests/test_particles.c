@@ -97,7 +97,7 @@ static void test_scrap_bounces_once_and_teeth(void) {
 }
 
 static void test_draw_particles_far_to_near(void) {
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     float last_size = 0.0f;
     int n = 0;
     fresh();

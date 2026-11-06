@@ -20,9 +20,10 @@ typedef struct { int dummy, k; Contact pass, at_entry; } Entry;
 
 void weapon_segment(const Weapon* wp, const WeaponRig* wr, float angle_deg,
                     float* gx, float* gy, float* tx, float* ty) {
-    float s = rsin_deg(angle_deg), c = rcos_deg(angle_deg), px = weapon_pivot_x(wp), rt = weapon_tip_radius(wr);
-    *gx = px + WEAPON_SWEEP_RADIUS * s;
-    *gy = WEAPON_PIVOT_Y - WEAPON_SWEEP_RADIUS * c;
+    float s = rsin_deg(angle_deg), c = rcos_deg(angle_deg), px = weapon_pivot_x(wp), ext = weapon_jab_ext(wp);
+    float rg = WEAPON_SWEEP_RADIUS + ext, rt = weapon_tip_radius(wr) + ext;
+    *gx = px + rg * s;
+    *gy = WEAPON_PIVOT_Y - rg * c;
     *tx = px + rt * s;
     *ty = WEAPON_PIVOT_Y - rt * c;
 }
@@ -111,8 +112,9 @@ static bool overlap_any(const Weapon* wp, const WeaponRig* wr, float angle_deg, 
 }
 
 /* The old combat gate plus projected boxes, with the pose draw_world uses. */
-static void gather(const WeaponDef* w, const Camera* cam, const DummyPool* pool, const DummyRig rigs[DS_COUNT],
+static void gather(const WeaponDef* w, const Weapon* wp, const Camera* cam, const DummyPool* pool, const DummyRig rigs[DS_COUNT],
                    int frame, Candidate cand[MAX_DUMMIES]) {
+    float reach = w->reach + WEAPON_JAB_REACH_M * weapon_jab_ext(wp) / WEAPON_JAB_PX;
     int i;
     for (i = 0; i < MAX_DUMMIES; i++) {
         const Dummy* d = &pool->d[i];
@@ -120,7 +122,7 @@ static void gather(const WeaponDef* w, const Camera* cam, const DummyPool* pool,
         float dz = d->z - cam->player_z;
         cand[i].ok = false;
         if (!d->alive || d->state == DST_EMERGING || d->state == DST_RAGDOLL || d->state == DST_DEAD) continue;
-        if (!(dz > 0.0f && dz <= w->reach)) continue;
+        if (!(dz > 0.0f && dz <= reach)) continue;
         if (d->reaction_t > 0) pose_for_reaction((ReactionType)d->reaction, (float)d->reaction_t / (float)REACTION_FRAMES, d, frame, &pose);
         else pose_for_state(d, frame, &pose);
         cand[i].ok = dummy_hit_boxes(cam, d, &rigs[d->size], &pose, &cand[i].head, &cand[i].body);
@@ -246,6 +248,27 @@ static void apply_hit(const WeaponDef* w, Dummy* d, int dummy, const Contact* c,
     }
 }
 
+/* A jab pokes whatever the extending weapon now overlaps, once per jab, pushing along the weapon. Skips dummies
+   the swing hit this frame. */
+static int jab_hits(Weapon* wp, const WeaponDef* w, const WeaponRig* wr, DummyPool* pool,
+                    const Candidate cand[MAX_DUMMIES], uint16_t skip, HitResult* out, int max_out) {
+    int i, nh = 0;
+    if (!weapon_jab_extending(wp)) return 0;
+    for (i = 0; i < MAX_DUMMIES && nh < max_out; i++) {
+        uint16_t bit = (uint16_t)(1u << i);
+        Contact c;
+        float x, y;
+        if (!cand[i].ok || (wp->jab_hit & bit) || (skip & bit)) continue;
+        if (overlap(wp, wr, wp->angle, &cand[i].head, &x, &y)) set_contact(wp, &c, true, x, y);
+        else if (overlap(wp, wr, wp->angle, &cand[i].body, &x, &y)) set_contact(wp, &c, false, x, y);
+        else continue;
+        wp->jab_hit = (uint16_t)(wp->jab_hit | bit);
+        /* the push runs out along the weapon: the sweep tangent a quarter turn back */
+        apply_hit(w, &pool->d[i], i, &c, wp->angle - 90.0f, 1.0f, w->mass * WEAPON_JAB_MOMENTUM, &out[nh++]);
+    }
+    return nh;
+}
+
 int contact_sweep(Weapon* wp, const WeaponDef* w, const WeaponRig* wr, const Camera* cam,
                   DummyPool* pool, const DummyRig rigs[DS_COUNT], int frame,
                   HitResult* out, int max_out) {
@@ -255,12 +278,14 @@ int contact_sweep(Weapon* wp, const WeaponDef* w, const WeaponRig* wr, const Cam
     int i, j, n, ne = 0, nh = 0;
     uint16_t hit_now = 0;
 
-    gather(w, cam, pool, rigs, frame, cand);
+    gather(w, wp, cam, pool, rigs, frame, cand);
     release_on_reverse(wp, wr, cand, da);
     if (!wp->swept || da == 0.0f) {
+        nh = jab_hits(wp, w, wr, pool, cand, 0, out, max_out);
+        if (nh > 0) gather(w, wp, cam, pool, rigs, frame, cand);
         release_on_exit(wp, wr, cand, 0);
         wp->inside = (uint16_t)(inside_mask(wp, wr, cand) | wp->struck);
-        return 0;
+        return nh;
     }
 
     n = (int)ceilf(fabsf(da) / WEAPON_SWEEP_STEP_DEG);
@@ -300,7 +325,8 @@ int contact_sweep(Weapon* wp, const WeaponDef* w, const WeaponRig* wr, const Cam
         }
     }
 
-    gather(w, cam, pool, rigs, frame, cand);
+    nh += jab_hits(wp, w, wr, pool, cand, hit_now, out + nh, max_out - nh);
+    gather(w, wp, cam, pool, rigs, frame, cand);
     release_on_exit(wp, wr, cand, hit_now);
     for (i = 0; i < MAX_DUMMIES; i++)   /* latch this frame's hits; a knockout is no longer a target */
         if ((hit_now & (1u << i)) && cand[i].ok) wp->struck = (uint16_t)(wp->struck | (1u << i));

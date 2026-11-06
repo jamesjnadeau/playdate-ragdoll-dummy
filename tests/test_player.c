@@ -12,7 +12,7 @@ static GameInput held(int buttons) {
 }
 
 static void test_player_walks(void) {
-    Player p; Hallway h; DummyPool dp; GameInput in = held(BTN_A);
+    Player p; Hallway h; DummyPool dp; GameInput in = held(BTN_UP);
     int f;
     memset(&h, 0, sizeof(h)); memset(&dp, 0, sizeof(dp));
     player_init(&p);
@@ -21,7 +21,7 @@ static void test_player_walks(void) {
 }
 
 static void test_player_blocked_by_dummy(void) {
-    Player p; Hallway h; DummyPool dp; GameInput in = held(BTN_A);
+    Player p; Hallway h; DummyPool dp; GameInput in = held(BTN_UP);
     int f, i;
     memset(&h, 0, sizeof(h)); memset(&dp, 0, sizeof(dp));
     player_init(&p);
@@ -48,7 +48,7 @@ static void setup_door(Hallway* h, int remaining) {
 }
 
 static void test_door_slam(void) {
-    Player p; Hallway h; DummyPool dp; GameInput in = held(BTN_A);
+    Player p; Hallway h; DummyPool dp; GameInput in = held(BTN_UP);
     int f, ev = 0, slams = 0;
     float slam_z = 0.0f;
     memset(&dp, 0, sizeof(dp));
@@ -69,7 +69,7 @@ static void test_door_slam(void) {
 }
 
 static void test_door_slam_spawns_dummy(void) {
-    Game g; GameInput in = held(BTN_A);
+    Game g; GameInput in = held(BTN_UP);
     int f, i, found = -1;
     game_init(&g, 7);
     setup_door(&g.hall, 2);
@@ -87,7 +87,7 @@ static void test_door_slam_spawns_dummy(void) {
 }
 
 static void test_door_closes_when_empty(void) {
-    Player p; Hallway h; DummyPool dp; GameInput in = held(BTN_A);
+    Player p; Hallway h; DummyPool dp; GameInput in = held(BTN_UP);
     int f, ev, closed = 0;
     memset(&dp, 0, sizeof(dp));
     setup_door(&h, 0);
@@ -104,7 +104,7 @@ static void test_door_closes_when_empty(void) {
 }
 
 static void test_cant_walk_back_past_closed_door(void) {
-    Player p; Hallway h; DummyPool dp; GameInput fwd = held(BTN_A), back = held(BTN_B);
+    Player p; Hallway h; DummyPool dp; GameInput fwd = held(BTN_UP), back = held(BTN_DOWN);
     int f;
     memset(&dp, 0, sizeof(dp));
     setup_door(&h, 0);
@@ -176,7 +176,7 @@ static void test_door_pool_full_keeps_remaining(void) {
 }
 
 static void test_back_floor_survives_recycle(void) {
-    Game g; GameInput fwd = held(BTN_A), back = held(BTN_B);
+    Game g; GameInput fwd = held(BTN_UP), back = held(BTN_DOWN);
     int f;
     float door_z;
     game_init(&g, 11);
@@ -194,7 +194,7 @@ static void test_back_floor_survives_recycle(void) {
 }
 
 static void test_slam_with_emerging_and_no_remaining(void) {
-    Game g; GameInput in = held(BTN_A);
+    Game g; GameInput in = held(BTN_UP);
     int f, i, n = 0, ev = 0;
     game_init(&g, 9);
     setup_door(&g.hall, 0);
@@ -216,7 +216,7 @@ static void test_slam_with_emerging_and_no_remaining(void) {
 }
 
 static void test_walk_back_limit(void) {
-    Player p; Hallway h; DummyPool dp; GameInput back = held(BTN_B);
+    Player p; Hallway h; DummyPool dp; GameInput back = held(BTN_DOWN);
     int f;
     memset(&dp, 0, sizeof(dp));
     setup_door(&h, 2);

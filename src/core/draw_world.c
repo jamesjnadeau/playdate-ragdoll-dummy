@@ -84,13 +84,14 @@ void draw_weapon(RenderList* rl, const Weapon* wp, const WeaponRig* wr, int imag
     float px = weapon_pivot_x(wp), a = weapon_wrap_deg(wp->angle), gx, gy;
     int i;
 
-    polar(px, a, WEAPON_SWEEP_RADIUS, &gx, &gy);
+    float ext = weapon_jab_ext(wp);
+    polar(px, a, WEAPON_SWEEP_RADIUS + ext, &gx, &gy);
     /* A fast weapon, held or loose, trails speed lines along arcs at three distances up it. */
     if (fabsf(wp->vel) >= SPEED_LINE_MIN_VEL) {
         float dir = wp->vel > 0.0f ? 1.0f : -1.0f;
         float len = wr->h > 0 ? (float)wr->h : 170.0f;
         for (i = 0; i < SPEED_LINES; i++) {
-            float r = WEAPON_SWEEP_RADIUS + len * (0.45f + 0.25f * (float)i);
+            float r = WEAPON_SWEEP_RADIUS + ext + len * (0.45f + 0.25f * (float)i);
             float x0, y0, x1, y1;
             polar(px, a - dir * SPEED_LINE_GAP_DEG, r, &x0, &y0);
             polar(px, a - dir * (SPEED_LINE_GAP_DEG + SPEED_LINE_LEN_DEG), r, &x1, &y1);

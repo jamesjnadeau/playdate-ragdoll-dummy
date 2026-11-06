@@ -18,20 +18,31 @@ Option 2, USB:
 
 | Input | Action |
 |---|---|
-| A / B | Walk forward / back |
+| D-pad up / down | Walk forward / back |
 | Crank | Drives the weapon. It follows the crank on a spring, so heavy weapons lag behind |
 | D-pad left / right | Slide the weapon's pivot left / right (and move the floor reach hint to that side) |
-| D-pad up / down | Aim up / down |
+| A or B | Jab: thrust the weapon out along where it points and pull it back |
 | Offer screen: A | Take the new weapon |
 | Offer screen: B | Keep your current weapon |
 
 The weapon points where the crank points (straight up when the crank is at 0). Docking the crank stands the weapon upright. A swing hits whatever the weapon passes through, and faster cranking hits harder. There are no separate overhead or uppercut swings any more: the direction you crank is the direction of the hit.
+
+The view no longer looks up or down: it stays fixed, tilted halfway between the old middle and low aims.
+
+A or B jabs (both do the same). The weapon pushes out along where it points, then pulls back. It hits whatever its outward thrust touches, once per jab, even with the crank still. A jab reaches a little deeper into the hall, never turns the weapon and never bounces. Its hit pushes the dummy along the weapon.
+
+Heavy weapons now lag the crank much more: the spring's pull is divided by the weapon's mass squared, so the sledgehammer trails a fast crank by about 60 degrees and swings past a little when you stop. The chicken still follows almost at once.
+
+Dummies have to come closer before they punch: about halfway into your weapon's reach, instead of as soon as they are in it. Large dummies can still punch when they are pressed against you.
 
 A hit with enough momentum goes through the dummy and carries on, a little slower. A hit without enough momentum bounces: the weapon flies back loose and stops following the crank. Bring the crank back to the weapon's angle to pick it up again. The rubber chicken is the exception: it is too floppy to bounce, so it always passes straight through at full speed.
 
 ## What to try
 
 - Swing both ways on the crank, with the pivot left, centred and right.
+- Jab with A or B, with the crank still and while swinging. Try poking a head.
+- Swing the sledgehammer fast and feel it trail behind the crank.
+- Let dummies walk in and check where they start punching.
 - Make a weapon bounce (a slow bat swing does it), then reconnect with it.
 - Whip the chicken through a crowd: it never bounces, so it should flop through every dummy in its path.
 - Use every weapon: Rubber Chicken, Bat, Frying Pan, Sledgehammer. Weapons are offered as pickups as you pass doors.
@@ -48,9 +59,11 @@ A hit with enough momentum goes through the dummy and carries on, a little slowe
 4. Is the weight bar on the offer screen useful?
 5. Does the floor reach patch still help, now that hits come from where the weapon actually is?
 6. Are the dummy reactions readable?
-7. Is the ragdoll too bouncy?
-8. Is the difficulty curve right: too fast, too slow, too crowded?
-9. The heavy hit sound is now sledgehammer-only: it plays when the weapon's mass is at least HIT_HEAVY_MASS (only the sledge) and the hit's momentum is at least HIT_HEAVY_MOMENTUM. This is a deliberate change: before the crank weapon, the frying pan and a fast bat hit also played the heavy sound. Every pan and bat hit now sounds light. Do you miss the heavy sound on the pan or a fast bat?
+7. Is the fixed view angle right, or should it tilt further down or up?
+8. Do jabs feel useful next to swings, and is the jab length right?
+9. Is the ragdoll too bouncy?
+10. Is the difficulty curve right: too fast, too slow, too crowded?
+11. The heavy hit sound is now sledgehammer-only: it plays when the weapon's mass is at least HIT_HEAVY_MASS (only the sledge) and the hit's momentum is at least HIT_HEAVY_MOMENTUM. This is a deliberate change: before the crank weapon, the frying pan and a fast bat hit also played the heavy sound. Every pan and bat hit now sounds light. Do you miss the heavy sound on the pan or a fast bat?
 
 Also tell me about anything that stutters, anything that looks wrong, and any crash.
 
@@ -66,7 +79,7 @@ All gameplay numbers are in `src/core/tuning.h`, except the weapon table in `src
 | MOMENTUM_REF | 80 | Momentum for a full-size hit reaction (a bat at 20 deg/frame hitting near its tip is about 80) |
 | DAMAGE_PER_MOMENTUM | 1/80 | Damage = momentum × power × this (× HEAD_MULT on the head) |
 | HEAD_MULT | 1.5 | Head hit damage multiplier |
-| HIT_HEAVY_MASS / HIT_HEAVY_MOMENTUM | 2.0 / 40 | A hit plays the heavy sound when the weapon is at least this heavy (only the sledge) and the contact momentum is at least this. The pan and a fast bat used to sound heavy and no longer do (feel question 9) |
+| HIT_HEAVY_MASS / HIT_HEAVY_MOMENTUM | 2.0 / 40 | A hit plays the heavy sound when the weapon is at least this heavy (only the sledge) and the contact momentum is at least this. The pan and a fast bat used to sound heavy and no longer do (feel question 11) |
 | WEAPON_BOUNCE_RESTITUTION | 0.4 | Share of the speed a bounced weapon flies back with |
 | WEAPON_BOUNCE_DAMP | 0.85 | Loose weapon speed kept per frame |
 | WEAPON_RECONNECT_DEG | 3 | How close the crank must come to a loose weapon to pick it up (crossing it also counts) |
@@ -84,22 +97,28 @@ All gameplay numbers are in `src/core/tuning.h`, except the weapon table in `src
 | DOOR_OPEN_MAX_DEG | 165 | Fully open door angle |
 | PLAYER_RADIUS | 0.35 m | Blocking distance is PLAYER_RADIUS + dummy radius |
 | DUMMY_RADIUS_SMALL / MEDIUM / LARGE | 0.30 / 0.38 / 0.50 m | So you stop 0.65 / 0.73 / 0.85 m from a dummy |
-| HORIZON_Y | 72 px | Screen row of the horizon at middle aim (was 108). Lower values tilt the view down: more floor (and the weapon range patch) and more of close dummies' bodies show |
+| HORIZON_Y | 72 px | Screen row of the horizon before the CAM_PITCH_PX tilt (was 108). Lower values tilt the view down: more floor (and the weapon range patch) and more of close dummies' bodies show |
 | WEAPON_PIVOT_X / Y | 200 / 376 px | Where the weapon pivots (below the screen). Raise Y to move the whole weapon lower. Upright, the bat's head is at about y 147 |
+| CAM_PITCH_PX | -20 px | Fixed view tilt (look up / down is gone). More negative tilts the view down |
+| WEAPON_JAB_PX / WEAPON_JAB_FRAMES | 45 px / 9 | How far a jab thrusts and how long it lasts out and back (hits land in the first WEAPON_JAB_OUT_FRAMES = 3) |
+| WEAPON_JAB_MOMENTUM | 40 per unit of mass | Jab hit strength (a bat jab is 40, a sledge jab 104) |
+| WEAPON_JAB_REACH_M | 0.4 m | Extra depth a full jab reaches |
+| DUMMY_PUNCH_REACH_FRAC | 0.5 | Dummies punch once this far into the weapon's reach |
+| DUMMY_PUNCH_GAP | 0.1 m | ...or once this close to you, if that is further (lets big dummies reach) |
 | WEAPON_SWEEP_RADIUS | 60 px | Grip distance from the pivot. Upright, the grip is at PIVOT_Y minus this, so a smaller value lifts the weapon |
 
 The blocking distance matters because near dummies only show their head on screen. Raise or lower the radii to change how much of them you see.
 
-The floor shows a light dotted patch as a reach hint (the current weapon's reach, 2.4 m wide, shifted toward the side you hold on the D-pad). It is only a hint: hits come from the weapon touching a dummy on screen. The patch starts about y 200 at the default aim (it is partly under the bottom HUD panel on the left).
+The floor shows a light dotted patch as a reach hint (the current weapon's reach, 2.4 m wide, shifted toward the side you hold on the D-pad). It is only a hint: hits come from the weapon touching a dummy on screen. The patch starts lower now that the view is tilted down (it is partly under the bottom HUD panel on the left).
 
 Weapon table (`src/core/weapons.c`): fields are name, folder, power, reach, launch, mass, spring, damp, weight bars, power bars. Mass is how much the weapon lags the crank and how hard it hits; spring and damp set how it catches up.
 
 | Weapon | Power | Reach | Launch | Mass | Spring | Damp |
 |---|---|---|---|---|---|---|
-| Rubber Chicken | 1.5 | 1.3 | 3.0 | 0.4 | 0.4 | 1.0 |
+| Rubber Chicken | 1.5 | 1.3 | 3.0 | 0.4 | 0.16 | 1.0 |
 | Bat | 1.0 | 1.6 | 5.0 | 1.0 | 0.5 | 0.77 |
-| Frying Pan | 1.01 | 1.4 | 6.0 | 1.4 | 0.5 | 0.67 |
-| Sledgehammer | 0.92 | 1.8 | 9.0 | 2.6 | 0.5 | 0.49 |
+| Frying Pan | 1.01 | 1.4 | 6.0 | 1.4 | 0.5 | 0.56 |
+| Sledgehammer | 0.92 | 1.8 | 9.0 | 2.6 | 0.5 | 0.30 |
 
 **Balance note.** Damage = momentum × power × DAMAGE_PER_MOMENTUM, and momentum already includes the weapon's mass, so `power` is per unit of momentum. It is set so a body hit at the tip at 20 deg/frame does what the old canned swing did at power factor 1.0, and hits-to-kill match the old game (small / medium / large: 2 / 3 / 5 HP):
 

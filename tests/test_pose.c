@@ -97,7 +97,6 @@ static void setup_box(DummySize sz, float z, Dummy* d, DummyPose* p) {
 static Camera box_cam(void) {
     Camera cam;
     memset(&cam, 0, sizeof cam);
-    cam.aim = 1;
     camera_update(&cam);
     return cam;
 }
@@ -159,13 +158,12 @@ static void test_boxes_none_when_not_drawn(void) {
     CHECK(!dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &hd, &bd));
 }
 
-static void test_boxes_follow_aim(void) {
+static void test_boxes_follow_pitch(void) {
     Camera cam = box_cam();
     Dummy d; DummyPose p; ScreenBox h1, b1, h2, b2;
     setup_box(DS_MEDIUM, 2.0f, &d, &p);
     CHECK(dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &h1, &b1));
-    camera_set_aim(&cam, 2);
-    for (int i = 0; i < 200; i++) camera_update(&cam);
+    cam.pitch_px = 40.0f;
     CHECK(dummy_hit_boxes(&cam, &d, &g_rig[DS_MEDIUM], &p, &h2, &b2));
     CHECK(h2.y0 != h1.y0);
     CHECK(b2.y0 != b1.y0);
@@ -176,7 +174,7 @@ void suite_pose(void) {
     test_head_above_body();
     test_boxes_scale_with_size();
     test_boxes_none_when_not_drawn();
-    test_boxes_follow_aim();
+    test_boxes_follow_pitch();
     test_pose_reaction_end_matches_walk_frame();
     test_pose_upward_head_back();
     test_pose_from_left_mirror();

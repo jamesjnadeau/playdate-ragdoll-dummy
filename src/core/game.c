@@ -9,8 +9,7 @@ void game_init(Game* g, uint32_t seed) {
     int i;
     memset(g, 0, sizeof(*g));
     rng_seed(&g->rng, seed);
-    camera_set_aim(&g->cam, 1);
-    g->cam.pitch_px = 0.0f;
+    camera_update(&g->cam);
     hallway_init(&g->hall, &g->rng);
     player_init(&g->player);
     g->weapon = W_BAT;
@@ -264,7 +263,7 @@ void game_update(Game* g, const GameInput* in) {
     pev = player_update(&g->player, in, &g->hall, &g->dummies, g->pending_damage);
     if (pev & PEV_HURT) { g->hurt_t = HURT_SHAKE_FRAMES; game_push_sound(g, SND_HURT); }
     if (pev & PEV_DOOR_SLAM) game_push_sound(g, SND_DOOR_SLAM);
-    if ((in->held & BTN_A) && g->player.z > prev_z) {
+    if ((in->held & BTN_UP) && g->player.z > prev_z) {
         if (++g->step_t >= STEP_SOUND_FRAMES) { g->step_t = 0; game_push_sound(g, SND_STEP); }
     } else {
         g->step_t = 0;
@@ -273,9 +272,6 @@ void game_update(Game* g, const GameInput* in) {
     g->cam.player_z = g->player.z;
     maybe_place_pickup(g);
     if (g->pickup_z >= 0.0f && fabsf(g->pickup_z - g->player.z) <= PICKUP_RADIUS) g->mode = MODE_OFFER;
-    if (in->pressed & BTN_UP) camera_set_aim(&g->cam, g->cam.aim + 1);
-    if (in->pressed & BTN_DOWN) camera_set_aim(&g->cam, g->cam.aim - 1);
-    camera_update(&g->cam);
     g->frame++;
 
     hallway_update(&g->hall, &g->rng, g->cam.player_z);
@@ -292,7 +288,7 @@ void game_update(Game* g, const GameInput* in) {
     spawn_from_doors(g);
     {
         int dmg = 0;
-        dummy_update_all(&g->dummies, g->player.z, g->player.x, &dmg);
+        dummy_update_all(&g->dummies, g->player.z, g->player.x, weapon_def(g->weapon)->reach * DUMMY_PUNCH_REACH_FRAC, &dmg);
         g->pending_damage += dmg;
     }
 
@@ -302,6 +298,7 @@ void game_update(Game* g, const GameInput* in) {
         bool was_attached = g->wp.attached;
         float prev_speed = fabsf(g->wp.vel);
         weapon_update(&g->wp, in, w);
+        if (g->wp.jab_t == 1) game_push_sound(g, SND_SWING);   /* A/B jab */
         /* Read before contact_sweep, so a bounce this frame cannot swallow the sound. */
         if (prev_speed < SPEED_LINE_MIN_VEL && fabsf(g->wp.vel) >= SPEED_LINE_MIN_VEL) game_push_sound(g, SND_SWING);
         g->nhits = contact_sweep(&g->wp, w, &g->wrigs[g->weapon], &g->cam, &g->dummies, g->rigs, g->frame,

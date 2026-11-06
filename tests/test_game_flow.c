@@ -132,7 +132,7 @@ static void test_offer_pauses_world(void) {
     g_.impacts[0].t = 3; g_.hurt_t = 4;
     memcpy(&rp, &g_.ragdolls, sizeof(rp)); memcpy(&pp, &g_.particles, sizeof(pp));
     memcpy(imp, g_.impacts, sizeof(imp)); memcpy(&sw, &g_.wp, sizeof(sw)); hurt = g_.hurt_t;
-    in.held = BTN_A;
+    in.held = BTN_UP;
     in.crank_delta = 30.0f;
     for (i = 0; i < 30; i++) game_update(&g_, &in);
     for (i = 0; i < MAX_DUMMIES; i++) CHECK_NEAR(g_.dummies.d[i].z, z[i], 1e-6f);
@@ -152,7 +152,7 @@ static void test_pickup_is_not_solid(void) {
     start(3);
     g_.pickup_z = g_.player.z + 3.0f;
     g_.offer = W_PAN;
-    in.held = BTN_A;
+    in.held = BTN_UP;
     for (i = 0; i < 20; i++) game_update(&g_, &in);
     CHECK(g_.player.z > 0.5f);   /* walked toward it unhindered */
 }
@@ -775,7 +775,7 @@ static void test_sound_steps(void) {
     start(3);
     tally(40, &in, c);
     CHECK_EQ_INT(c[SND_STEP], 0);          /* standing */
-    in.held = BTN_A;
+    in.held = BTN_UP;
     tally(24, &in, c);
     CHECK_EQ_INT(c[SND_STEP], 2);          /* every 12 frames of walking */
     CHECK(g_.player.z > 0.5f);
@@ -792,7 +792,7 @@ static void test_sound_door_slam(void) {
     dr->state = DOOR_OPEN; dr->remaining = 3; dr->spawn_timer = 999; dr->leaf_angle = 1.0f;
     g_.player.z = dr->z + DOOR_LEN * 0.5f - 0.02f;
     g_.cam.player_z = g_.player.z;
-    in.held = BTN_A;
+    in.held = BTN_UP;
     tally(3, &in, c);
     CHECK_EQ_INT(c[SND_DOOR_SLAM], 1);
 }

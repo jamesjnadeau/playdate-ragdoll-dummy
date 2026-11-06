@@ -11,6 +11,22 @@ float weapon_wrap_deg(float a) {
 
 float weapon_pivot_x(const Weapon* wp) { return WEAPON_PIVOT_X + wp->shift; }
 
+float weapon_jab_ext(const Weapon* wp) {
+    if (wp->jab_t <= 0 || wp->jab_t > WEAPON_JAB_FRAMES) return 0.0f;
+    if (wp->jab_t <= WEAPON_JAB_OUT_FRAMES) return WEAPON_JAB_PX * (float)wp->jab_t / (float)WEAPON_JAB_OUT_FRAMES;
+    return WEAPON_JAB_PX * (float)(WEAPON_JAB_FRAMES - wp->jab_t) / (float)(WEAPON_JAB_FRAMES - WEAPON_JAB_OUT_FRAMES);
+}
+
+bool weapon_jab_extending(const Weapon* wp) { return wp->jab_t > 0 && wp->jab_t <= WEAPON_JAB_OUT_FRAMES; }
+
+static void jab_update(Weapon* wp, const GameInput* in) {
+    if (wp->jab_t > 0 && ++wp->jab_t > WEAPON_JAB_FRAMES) wp->jab_t = 0;
+    if (wp->jab_t == 0 && (in->pressed & (BTN_A | BTN_B))) {
+        wp->jab_t = 1;
+        wp->jab_hit = 0;
+    }
+}
+
 void weapon_detach(Weapon* wp, float angle, float vel) {
     wp->angle = angle;
     wp->vel = vel;
@@ -32,6 +48,7 @@ void weapon_update(Weapon* wp, const GameInput* in, const WeaponDef* w) {
 
     if (in->crank_docked) {
         wp->live = wp->attached = false;
+        wp->jab_t = 0;
         wp->angle = wp->prev_angle = wp->target = wp->vel = 0.0f;
         return;
     }
@@ -42,11 +59,13 @@ void weapon_update(Weapon* wp, const GameInput* in, const WeaponDef* w) {
         return;
     }
 
+    jab_update(wp, in);
     wp->target += in->crank_delta;
 
     if (wp->attached) {
         float err = wp->target - wp->angle;
-        wp->vel += err * w->spring / w->mass - wp->vel * w->damp;
+        /* mass squared: heavy weapons lag well behind the crank, light ones stay snappy */
+        wp->vel += err * w->spring / (w->mass * w->mass) - wp->vel * w->damp;
         if (wp->vel > WEAPON_MAX_VEL) wp->vel = WEAPON_MAX_VEL;
         if (wp->vel < -WEAPON_MAX_VEL) wp->vel = -WEAPON_MAX_VEL;
         wp->angle += wp->vel;

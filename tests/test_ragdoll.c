@@ -338,7 +338,7 @@ static void test_ragdoll_soak_stays_in_hallway(void) {
 
 static void test_draw_ragdoll_partial_visibility(void) {
     static RagdollPool rp; static DummyPool dp;
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     Ragdoll* r;
     init_rigs();
     memset(&rp, 0, sizeof rp); memset(&dp, 0, sizeof dp);
@@ -370,7 +370,7 @@ static void test_launch_spin(void) {
 
 static void test_draw_ragdoll_segments(void) {
     static RagdollPool rp; static DummyPool dp;
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     Ragdoll* r;
     int hi, f, b;
     init_rigs();
@@ -406,7 +406,7 @@ static void test_draw_ragdoll_segments(void) {
 static void test_draw_world_sorts_ragdolls_with_dummies(void) {
     static RagdollPool rp; static DummyPool dp;
     static Hallway h;
-    Camera cam = {0.0f, 0.0f, 1};
+    Camera cam = {0.0f, 0.0f};
     int live, rag;
     init_rigs();
     for (int pass = 0; pass < 2; pass++) {
@@ -466,7 +466,7 @@ static void test_ragdoll_base_hidden_when_airborne(void) {
     int r;
     init_rigs();
     memset(&rp, 0, sizeof rp); memset(&dp, 0, sizeof dp);
-    camera_set_aim(&cam, 1); camera_update(&cam);
+    cam.pitch_px = 0.0f;
     r = mk_ragdoll(&rp, &dp, DS_MEDIUM, 0.0f, 3.0f, V(0, 0, 0));
     rp.r[r].p[RP_BASE].y = 0.0f;
     rl_clear(&g_rl);
@@ -484,7 +484,7 @@ static void test_dummy_base_hidden_when_lifted(void) {
     init_rigs();
     memset(&d, 0, sizeof d);
     d.alive = true; d.size = DS_MEDIUM; d.state = DST_WALK; d.x = 0.0f; d.z = 3.0f;
-    camera_set_aim(&cam, 1); camera_update(&cam);
+    cam.pitch_px = 0.0f;
     pose_for_state(&d, 0, &p);
     p.lift_m = 0.0f;
     rl_clear(&g_rl);

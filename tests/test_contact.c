@@ -7,11 +7,11 @@
 #define FRAME 0
 /* Scene setups (camera pitch, dummy distance). Each keeps the a*-30 start clear of the boxes for a pivot at
    y 376..400, and the aimed box centre inside the weapon's span (aim_at checks it). */
-#define PITCH_LOW AIM_PITCH_LOW_PX    /* small dummy at DZ_LOW: head out of reach, body in reach */
+#define PITCH_LOW (-40.0f)           /* small dummy at DZ_LOW: head out of reach, body in reach */
 #define DZ_LOW 1.0f
 #define PITCH_MID 0.0f                /* medium dummy at DZ_MID: head out of reach, body in reach */
 #define DZ_MID 1.2f
-#define PITCH_HIGH AIM_PITCH_HIGH_PX  /* small dummy at DZ_HIGH: head and body both in the arc */
+#define PITCH_HIGH 40.0f             /* small dummy at DZ_HIGH: head and body both in the arc */
 #define DZ_HIGH 1.2f
 
 static DummyRig g_rigs[DS_COUNT];
@@ -464,6 +464,47 @@ static void test_max_out_respected(void) {
     CHECK_EQ_INT(sweep(&wp, W_SLEDGE, &cam, &p, h, 4), 3);
 }
 
+/* A still weapon resting on a dummy pokes it once per jab, pushing along itself, and stays attached. */
+static void test_jab_hits_once_while_still(void) {
+    DummyPool p; Weapon wp; HitResult h[4]; float a;
+    int f, total = 0;
+    Camera cam = mk_cam(PITCH_LOW);
+    scene1(&p, &wp, &cam, W_BAT, DS_SMALL, DZ_LOW, 0.0f, &a);
+    set_sweep(&wp, a, a, 0.0f);
+    wp.swept = false;
+    CHECK_EQ_INT(sweep(&wp, W_BAT, &cam, &p, h, 4), 0);   /* resting on it does nothing */
+    wp.jab_t = 1;
+    for (f = 0; f < WEAPON_JAB_FRAMES; f++) {
+        total += sweep(&wp, W_BAT, &cam, &p, h + (total < 4 ? total : 3), 4 - (total < 4 ? total : 3));
+        wp.jab_t++;
+    }
+    CHECK_EQ_INT(total, 1);
+    CHECK_EQ_INT(h[0].dummy, 0);
+    CHECK(p.d[0].hp < p.d[0].max_hp);
+    CHECK(wp.attached);
+    CHECK_NEAR(wp.vel, 0.0f, 0.0f);
+    /* A second jab hits again. */
+    wp.jab_t = 1;
+    wp.jab_hit = 0;
+    CHECK_EQ_INT(sweep(&wp, W_BAT, &cam, &p, h, 4), 1);
+}
+
+/* Retracting never hits; a jab pointing away from every dummy hits nothing. */
+static void test_jab_only_hits_going_out(void) {
+    DummyPool p; Weapon wp; HitResult h[4]; float a;
+    Camera cam = mk_cam(PITCH_LOW);
+    scene1(&p, &wp, &cam, W_BAT, DS_SMALL, DZ_LOW, 0.0f, &a);
+    set_sweep(&wp, a, a, 0.0f);
+    wp.swept = false;
+    wp.jab_t = WEAPON_JAB_OUT_FRAMES + 1;
+    CHECK_EQ_INT(sweep(&wp, W_BAT, &cam, &p, h, 4), 0);
+    set_sweep(&wp, a + 60.0f, a + 60.0f, 0.0f);
+    wp.swept = false;
+    wp.jab_t = 1;
+    CHECK_EQ_INT(sweep(&wp, W_BAT, &cam, &p, h, 4), 0);
+    CHECK_NEAR(p.d[0].hp, p.d[0].max_hp, 0.0001f);
+}
+
 void suite_contact(void) {
     init_rigs();
     test_balance_checks();
@@ -487,4 +528,6 @@ void suite_contact(void) {
     test_struck_dummy_released_by_return_and_next_turn();
     test_still_weapon_never_hits();
     test_max_out_respected();
+    test_jab_hits_once_while_still();
+    test_jab_only_hits_going_out();
 }
