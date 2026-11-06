@@ -677,7 +677,7 @@ static void test_sound_hit_light_and_heavy(void) {
     SwingLog log;
     swing_at_dummy(W_CHICKEN, 100.0f, &log);
     CHECK_EQ_INT(log.counts[SND_SWING], 1);
-    CHECK(log.counts[SND_HIT_LIGHT] >= 1);   /* the hit, and the bounce if the chicken bounces */
+    CHECK(log.counts[SND_HIT_LIGHT] >= 1);   /* the hit; the floppy chicken never bounces */
     CHECK_EQ_INT(log.counts[SND_HIT_HEAVY], 0);
     CHECK_EQ_INT(log.counts[SND_GRUNT], 0);
     CHECK_EQ_INT(log.hit_frames, 1);

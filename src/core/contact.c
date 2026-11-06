@@ -284,13 +284,15 @@ int contact_sweep(Weapon* wp, const WeaponDef* w, const WeaponRig* wr, const Cam
         float R = dummy_resist(d->size);
         HitResult* h = &out[nh++];
         /* A hit that will bounce stops at the entry sample, so it scores only what the weapon reached there. */
-        if (m < R && d->hp - hit_damage(w, c, m) > 0.0f) {
+        if (!w->flexible && m < R && d->hp - hit_damage(w, c, m) > 0.0f) {
             c = &e->at_entry;
             m = contact_momentum(w, wp->vel, c->r);
         }
         apply_hit(w, d, e->dummy, c, a_k, wp->vel, m, h);
         hit_now = (uint16_t)(hit_now | (1u << e->dummy));
-        if (m >= R || h->knockout) {
+        if (w->flexible) {
+            /* bends around the dummy and carries on at full speed */
+        } else if (m >= R || h->knockout) {
             float keep = m > 0.0f ? 1.0f - R / m : 0.0f;
             wp->vel *= keep > 0.0f ? keep : 0.0f;
         } else {

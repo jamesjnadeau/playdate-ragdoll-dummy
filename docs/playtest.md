@@ -27,12 +27,13 @@ Option 2, USB:
 
 The weapon points where the crank points (straight up when the crank is at 0). Docking the crank stands the weapon upright. A swing hits whatever the weapon passes through, and faster cranking hits harder. There are no separate overhead or uppercut swings any more: the direction you crank is the direction of the hit.
 
-A hit with enough momentum goes through the dummy and carries on, a little slower. A hit without enough momentum bounces: the weapon flies back loose and stops following the crank. Bring the crank back to the weapon's angle to pick it up again.
+A hit with enough momentum goes through the dummy and carries on, a little slower. A hit without enough momentum bounces: the weapon flies back loose and stops following the crank. Bring the crank back to the weapon's angle to pick it up again. The rubber chicken is the exception: it is too floppy to bounce, so it always passes straight through at full speed.
 
 ## What to try
 
 - Swing both ways on the crank, with the pivot left, centred and right.
-- Make a weapon bounce (the chicken bounces off almost everything), then reconnect with it.
+- Make a weapon bounce (a slow bat swing does it), then reconnect with it.
+- Whip the chicken through a crowd: it never bounces, so it should flop through every dummy in its path.
 - Use every weapon: Rubber Chicken, Bat, Frying Pan, Sledgehammer. Weapons are offered as pickups as you pass doors.
 - Wall bursts: hit a dummy hard so the ragdoll slams a wall and bursts.
 - Bowling: knock a ragdoll into other dummies.

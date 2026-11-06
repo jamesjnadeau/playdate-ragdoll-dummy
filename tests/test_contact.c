@@ -166,16 +166,19 @@ static void test_out_of_reach_not_hit(void) {
     CHECK_NEAR(p.d[0].hp, p.d[0].max_hp, 0.0001f);
 }
 
+/* A bat swung slowly is too light to get through: it bounces. */
+#define SLOW_VEL 6.0f
+
 static void test_bounce_detaches_and_reverses(void) {
     DummyPool p; Weapon wp; HitResult h[4]; float a;
     Camera cam = mk_cam(PITCH_MID);
-    scene1(&p, &wp, &cam, W_CHICKEN, DS_MEDIUM, DZ_MID, 20.0f, &a);
-    CHECK_EQ_INT(sweep(&wp, W_CHICKEN, &cam, &p, h, 4), 1);
+    scene1(&p, &wp, &cam, W_BAT, DS_MEDIUM, DZ_MID, SLOW_VEL, &a);
+    CHECK_EQ_INT(sweep(&wp, W_BAT, &cam, &p, h, 4), 1);
     CHECK(h[0].damage > 0.0f);
     CHECK(!h[0].knockout);
     CHECK(!wp.attached);
     CHECK(wp.vel < 0.0f);
-    CHECK_NEAR(wp.vel, -20.0f * WEAPON_BOUNCE_RESTITUTION, 0.0001f);
+    CHECK_NEAR(wp.vel, -SLOW_VEL * WEAPON_BOUNCE_RESTITUTION, 0.0001f);
     CHECK(wp.angle > a - 30.0f && wp.angle < a + 10.0f);
 }
 
@@ -201,14 +204,46 @@ static void test_second_dummy_after_bounce_untouched(void) {
     memset(&wp, 0, sizeof wp);
     l = put(&p, DS_SMALL, -0.4f, DZ_LOW);
     r = put(&p, DS_SMALL, 0.4f, DZ_LOW);
-    al = aim_body(&cam, &p.d[l], &wp, &g_wr[W_CHICKEN]);
-    ar = aim_body(&cam, &p.d[r], &wp, &g_wr[W_CHICKEN]);
-    set_sweep(&wp, al - 30.0f, ar + 10.0f, 20.0f);
-    CHECK_EQ_INT(sweep(&wp, W_CHICKEN, &cam, &p, h, 4), 1);
+    al = aim_body(&cam, &p.d[l], &wp, &g_wr[W_BAT]);
+    ar = aim_body(&cam, &p.d[r], &wp, &g_wr[W_BAT]);
+    set_sweep(&wp, al - 30.0f, ar + 10.0f, SLOW_VEL);
+    CHECK_EQ_INT(sweep(&wp, W_BAT, &cam, &p, h, 4), 1);
     CHECK_EQ_INT(h[0].dummy, l);
     CHECK(!wp.attached);
     CHECK_NEAR(p.d[r].hp, p.d[r].max_hp, 0.0001f);
     CHECK_EQ_INT(p.d[r].state, DST_WALK);
+}
+
+/* The rubber chicken is too floppy to bounce: it bends around the dummy and keeps going. */
+static void test_chicken_never_bounces(void) {
+    DummyPool p; Weapon wp; HitResult h[4]; float a;
+    Camera cam = mk_cam(PITCH_MID);
+    CHECK(weapon_def(W_CHICKEN)->flexible);
+    CHECK(!weapon_def(W_BAT)->flexible && !weapon_def(W_PAN)->flexible && !weapon_def(W_SLEDGE)->flexible);
+    CHECK(tip_m(W_CHICKEN, 20.0f) < dummy_resist(DS_MEDIUM));   /* would bounce under the normal rule */
+    scene1(&p, &wp, &cam, W_CHICKEN, DS_MEDIUM, DZ_MID, 20.0f, &a);
+    CHECK_EQ_INT(sweep(&wp, W_CHICKEN, &cam, &p, h, 4), 1);
+    CHECK(h[0].damage > 0.0f);
+    CHECK(wp.attached);
+    CHECK(wp.vel == 20.0f);
+}
+
+static void test_chicken_passes_through_two_dummies(void) {
+    DummyPool p; Weapon wp; HitResult h[4]; float al, ar;
+    int l, r;
+    Camera cam = mk_cam(PITCH_LOW);
+    memset(&p, 0, sizeof p);
+    memset(&wp, 0, sizeof wp);
+    l = put(&p, DS_SMALL, -0.4f, DZ_LOW);
+    r = put(&p, DS_SMALL, 0.4f, DZ_LOW);
+    al = aim_body(&cam, &p.d[l], &wp, &g_wr[W_CHICKEN]);
+    ar = aim_body(&cam, &p.d[r], &wp, &g_wr[W_CHICKEN]);
+    set_sweep(&wp, al - 30.0f, ar + 10.0f, 20.0f);
+    CHECK_EQ_INT(sweep(&wp, W_CHICKEN, &cam, &p, h, 4), 2);
+    CHECK_EQ_INT(h[0].dummy, l);
+    CHECK_EQ_INT(h[1].dummy, r);
+    CHECK(wp.attached);
+    CHECK(wp.vel == 20.0f);
 }
 
 static void test_line_of_dummies_saps_momentum(void) {
@@ -234,13 +269,13 @@ static void test_line_of_dummies_saps_momentum(void) {
 static void test_ko_counts_as_through(void) {
     DummyPool p; Weapon wp; HitResult h[4]; float a;
     Camera cam = mk_cam(PITCH_MID);
-    scene1(&p, &wp, &cam, W_CHICKEN, DS_MEDIUM, DZ_MID, 20.0f, &a);
+    scene1(&p, &wp, &cam, W_BAT, DS_MEDIUM, DZ_MID, SLOW_VEL, &a);
     p.d[0].hp = 0.01f;
-    CHECK_EQ_INT(sweep(&wp, W_CHICKEN, &cam, &p, h, 4), 1);
+    CHECK_EQ_INT(sweep(&wp, W_BAT, &cam, &p, h, 4), 1);
     CHECK(h[0].knockout);
     CHECK_EQ_INT(p.d[0].state, DST_RAGDOLL);
     CHECK(h[0].launch.z > 0.0f);
-    CHECK_NEAR(v3_len(h[0].launch), weapon_def(W_CHICKEN)->launch * HIT_SCALE_MIN, 0.01f);
+    CHECK_NEAR(v3_len(h[0].launch), weapon_def(W_BAT)->launch * HIT_SCALE_MIN, 0.01f);
     CHECK(wp.attached);
     CHECK(wp.vel == 0.0f);
 }
@@ -271,15 +306,15 @@ static void test_head_anywhere_in_pass(void) {
 static void test_bounce_in_head_scene_scores_body(void) {
     DummyPool p; Weapon wp; HitResult h[4]; float a, a_k, dx, dy;
     ScreenBox hb, bb;
-    const WeaponDef* w = weapon_def(W_CHICKEN);
+    const WeaponDef* w = weapon_def(W_BAT);
     Camera cam = mk_cam(PITCH_HIGH);
     memset(&p, 0, sizeof p);
     memset(&wp, 0, sizeof wp);
     put(&p, DS_SMALL, 0.0f, DZ_HIGH);
     boxes_of(&cam, &p.d[0], &hb, &bb);
-    a = aim_at(&wp, &g_wr[W_CHICKEN], &hb);
-    set_sweep(&wp, a - 30.0f, a + 10.0f, 20.0f);
-    CHECK_EQ_INT(sweep(&wp, W_CHICKEN, &cam, &p, h, 4), 1);
+    a = aim_at(&wp, &g_wr[W_BAT], &hb);
+    set_sweep(&wp, a - 30.0f, a + 10.0f, SLOW_VEL);
+    CHECK_EQ_INT(sweep(&wp, W_BAT, &cam, &p, h, 4), 1);
     CHECK(!wp.attached);                       /* it bounced */
     a_k = wp.angle;                            /* detached at the entry angle */
     CHECK(a_k < a);                            /* entered the body before reaching the head */
@@ -287,7 +322,7 @@ static void test_bounce_in_head_scene_scores_body(void) {
     CHECK(in_box(h[0].sx, h[0].sy, &bb));
     dx = h[0].sx - weapon_pivot_x(&wp);
     dy = h[0].sy - WEAPON_PIVOT_Y;
-    CHECK_NEAR(h[0].damage, contact_momentum(w, 20.0f, sqrtf(dx * dx + dy * dy)) * w->power * DAMAGE_PER_MOMENTUM,
+    CHECK_NEAR(h[0].damage, contact_momentum(w, SLOW_VEL, sqrtf(dx * dx + dy * dy)) * w->power * DAMAGE_PER_MOMENTUM,
                0.001f);
 }
 
@@ -441,6 +476,8 @@ void suite_contact(void) {
     test_bounce_detaches_and_reverses();
     test_penetration_slows();
     test_second_dummy_after_bounce_untouched();
+    test_chicken_never_bounces();
+    test_chicken_passes_through_two_dummies();
     test_line_of_dummies_saps_momentum();
     test_ko_counts_as_through();
     test_head_anywhere_in_pass();

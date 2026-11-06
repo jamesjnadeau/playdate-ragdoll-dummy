@@ -1,6 +1,8 @@
 #ifndef WEAPONS_H
 #define WEAPONS_H
 
+#include <stdbool.h>
+
 typedef enum { W_CHICKEN, W_BAT, W_PAN, W_SLEDGE, W_COUNT } WeaponId;
 
 typedef struct {
@@ -9,6 +11,7 @@ typedef struct {
     float power, reach, launch;
     float mass, spring, damp;
     int weight_bars, power_bars;
+    bool flexible;   /* bends around what it hits: never bounces, never slows */
 } WeaponDef;
 
 /* Returns NULL for an out-of-range id. */
